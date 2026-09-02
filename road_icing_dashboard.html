@@ -232,6 +232,8 @@
 
   .popup-title{ font-weight:800; margin-bottom:4px; color:var(--navy); font-size:13px; }
   .popup-row{ font-size:11.5px; color:var(--navy-soft); margin-bottom:2px; }
+  .popup-sat{ width:100%; height:140px; border-radius:8px; overflow:hidden; background:#e6e9f0; }
+  .popup-sat .leaflet-control-attribution{ display:none; }
   .leaflet-popup-content-wrapper{ border-radius:10px; }
   .leaflet-control-layers{
     border-radius:10px !important;
@@ -258,7 +260,7 @@
       <span class="brand-badge"></span>
       <div>
         <div class="brand-title" id="brandTitle">도로결빙 위험구간 관측 지도</div>
-       
+        <div class="brand-sub" id="brandSub">강진 구간 · 지면(노면)온도 센서 이동관측</div>
       </div>
     </div>
     <div class="mode-toggle" id="modeToggle">
@@ -469,6 +471,10 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 let routeLayer = L.layerGroup(); // 위험구간 강조선 + 마커 (기본적으로 숨김)
 let gradientLayer = L.layerGroup().addTo(map); // 노면온도 그라데이션 경로 (항상 표시)
 let lastBoundsLatLngs = []; // 가장 최근에 그려진 경로의 좌표 (레이아웃 확정 후 재조정용)
+
+// 위험구간 팝업 안 위성사진 미니맵용 (키 발급 없이 바로 쓸 수 있는 Esri 위성 타일)
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+let satPopupSeq = 0;
 
 // 카드 레이아웃이 자리잡은 뒤 지도 크기를 다시 계산해, 관측 구역 전체가 한 화면에 들어오도록 보정
 setTimeout(() => {
@@ -726,6 +732,7 @@ function drawRoute(points, locationLabel){
     }).addTo(routeLayer);
 
     const sparkSvg = buildSparkline(temps, 220, 60);
+    const satId = `sat-${++satPopupSeq}`;
     marker.bindPopup(`
       <div class="popup-title">${title}${reason ? ' · '+reason : ''}</div>
       ${locationRow}
@@ -733,9 +740,31 @@ function drawRoute(points, locationLabel){
       <div class="popup-row">구간 내 관측지점: ${cluster.length}개</div>
       <div class="popup-row">${statLine}</div>
       ${MODE !== 'heat' ? `<div class="popup-row">최저 마찰계수: ${minFriction !== null ? minFriction.toFixed(2) : '-'}</div>` : ''}
+      <div class="popup-row" style="margin-top:6px;">위성사진 (실사)</div>
+      <div class="popup-sat" id="${satId}"></div>
       <div class="popup-row" style="margin-top:6px;">구간 내 ${MODE === 'heat' ? '기온' : '온도'} 변화</div>
       ${sparkSvg}
     `, { maxWidth: 260 });
+
+    // 팝업이 열릴 때 그 지점을 중심으로 한 위성사진 미니맵 생성, 닫히면 정리(메모리 누수 방지)
+    let satMap = null;
+    marker.on('popupopen', () => {
+      const el = document.getElementById(satId);
+      if(!el) return;
+      satMap = L.map(el, {
+        zoomControl: false, attributionControl: false, dragging: false,
+        scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+        keyboard: false, tap: false
+      }).setView([mid.la, mid.lo], 17);
+      L.tileLayer(SATELLITE_TILE_URL, { maxZoom: 19 }).addTo(satMap);
+      L.circleMarker([mid.la, mid.lo], {
+        radius: 6, color: '#fff', weight: 2, fillColor: '#e6484f', fillOpacity: 1
+      }).addTo(satMap);
+      setTimeout(() => satMap && satMap.invalidateSize(), 50);
+    });
+    marker.on('popupclose', () => {
+      if(satMap){ satMap.remove(); satMap = null; }
+    });
   });
 
   return { clusters, distanceKm, validLatLngs };
