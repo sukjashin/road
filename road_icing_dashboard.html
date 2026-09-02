@@ -933,6 +933,35 @@ const thHeatDanger = document.getElementById('thHeatDanger');
 });
 
 /* ==================================================================
+   결빙 / 폭염 자동 판단 - 파일을 불러오면 데이터를 분석해 모드를 자동 전환
+   ================================================================== */
+function detectMode(routes){
+  let minRoadTemp = Infinity, maxHeatTemp = -Infinity;
+  routes.forEach(route => {
+    route.rows.forEach(row => {
+      if(isFinite(row.roadTemp) && row.roadTemp < minRoadTemp) minRoadTemp = row.roadTemp;
+      const heatTemp = isFinite(row.airTemp) ? row.airTemp : row.roadTemp;
+      if(isFinite(heatTemp) && heatTemp > maxHeatTemp) maxHeatTemp = heatTemp;
+    });
+  });
+
+  // 임계값을 얼마나 넘었는지를 "위험 신호 강도"로 보고, 더 뚜렷한 쪽으로 자동 전환
+  const icingScore = isFinite(minRoadTemp) ? (CAUTION_ROAD_TEMP - minRoadTemp) : -Infinity;
+  const heatScore = isFinite(maxHeatTemp) ? (maxHeatTemp - HEAT_CAUTION_TEMP) : -Infinity;
+
+  let mode = null;
+  if(icingScore > 0 && heatScore > 0){
+    mode = icingScore >= heatScore ? 'icing' : 'heat';
+  } else if(icingScore > 0){
+    mode = 'icing';
+  } else if(heatScore > 0){
+    mode = 'heat';
+  }
+
+  return { mode, minRoadTemp, maxHeatTemp, icingScore, heatScore };
+}
+
+/* ==================================================================
    결빙 / 폭염 모드 전환
    ================================================================== */
 function applyModeLabels(){
@@ -1071,11 +1100,25 @@ runBtn.addEventListener('click', () => {
   });
   const totalPts = routes.reduce((s, r) => s + r.rows.length, 0);
 
+  // 데이터를 분석해 결빙/폭염 위험 신호를 자동 판단하고 해당 모드로 전환
+  const detected = detectMode(routes);
+  let detectMsg;
+  if(detected.mode === 'heat'){
+    detectMsg = `🔥 폭염 위험 신호 감지(최고 ${detected.maxHeatTemp.toFixed(1)}℃) → 폭염 모드로 전환했습니다.`;
+  } else if(detected.mode === 'icing'){
+    detectMsg = `❄️ 결빙 위험 신호 감지(최저 ${detected.minRoadTemp.toFixed(1)}℃) → 결빙 모드로 전환했습니다.`;
+  } else {
+    detectMsg = `결빙·폭염 위험 신호가 감지되지 않았습니다(최저 ${isFinite(detected.minRoadTemp) ? detected.minRoadTemp.toFixed(1) : '-'}℃ · 최고 ${isFinite(detected.maxHeatTemp) ? detected.maxHeatTemp.toFixed(1) : '-'}℃). 결빙 모드로 표시합니다.`;
+  }
+  MODE = detected.mode || 'icing';
+  applyModeLabels();
+
   renderStationDashboard(routes, fileNames);
 
-  fileStatusEl.textContent = hadError
+  const loadMsg = hadError
     ? `일부 파일에서 유효한 데이터를 찾지 못했습니다. (이동경로 ${routes.length}개, 총 ${totalPts.toLocaleString()}건 반영)`
     : `이동경로 ${routes.length}개, 총 ${totalPts.toLocaleString()}건 반영 완료.`;
+  fileStatusEl.textContent = `${loadMsg} ${detectMsg}`;
 });
 
 /* ==================================================================
