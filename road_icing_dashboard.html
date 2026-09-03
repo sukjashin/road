@@ -463,18 +463,23 @@ function buildSparkline(temps, w, h){
 /* ---------- 지도 초기화 (최초 1회) ---------- */
 const map = L.map('map', { zoomControl: true, preferCanvas: true }).setView([36.3, 127.8], 7);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+// 키 발급 없이 바로 쓸 수 있는 Esri 위성/항공사진 타일 (위성 미니맵 + 지도 전체 위성모드에 공용)
+const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+let satPopupSeq = 0;
+
+const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
+const satelliteLayer = L.tileLayer(SATELLITE_TILE_URL, {
+  maxZoom: 19,
+  attribution: 'Tiles &copy; Esri'
+});
+
 let routeLayer = L.layerGroup(); // 위험구간 강조선 + 마커 (기본적으로 숨김)
 let gradientLayer = L.layerGroup().addTo(map); // 노면온도 그라데이션 경로 (항상 표시)
 let lastBoundsLatLngs = []; // 가장 최근에 그려진 경로의 좌표 (레이아웃 확정 후 재조정용)
-
-// 위험구간 팝업 안 위성사진 미니맵용 (키 발급 없이 바로 쓸 수 있는 Esri 위성 타일)
-const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-let satPopupSeq = 0;
 
 // 카드 레이아웃이 자리잡은 뒤 지도 크기를 다시 계산해, 관측 구역 전체가 한 화면에 들어오도록 보정
 setTimeout(() => {
@@ -482,8 +487,11 @@ setTimeout(() => {
   if(lastBoundsLatLngs.length) map.fitBounds(lastBoundsLatLngs, { padding: [24, 24] });
 }, 200);
 
-// 결빙 위험구간(빨간 표시) 레이어는 기본 숨김 - 체크박스로 켜고 끌 수 있음
-L.control.layers(null, {
+// 일반지도/위성지도 전환 + 결빙 위험구간(빨간 표시) 레이어 토글
+L.control.layers({
+  '일반지도': osmLayer,
+  '위성지도': satelliteLayer
+}, {
   '위험구간 표시': routeLayer
 }, { position:'topright', collapsed:false }).addTo(map);
 
