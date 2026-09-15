@@ -1,0 +1,120 @@
+{
+  "checks": {
+    "syntax": "pass",
+    "sourceMatchesBundle": "9/9",
+    "dateMatchesFile": "9/9",
+    "independentValidCount": "9/9",
+    "independentRiskCount": "9/9",
+    "browser": "unavailable - not tested"
+  },
+  "files": [
+    {
+      "date": "2025-01-03",
+      "source": 342,
+      "valid": 339,
+      "excluded": 3,
+      "riskPoints": 1,
+      "minRoadTemp": -0.3,
+      "maxRoadTemp": 21.4,
+      "excludedExamples": [
+        "25,0,0,1020",
+        "28,5247,127,1122"
+      ]
+    },
+    {
+      "date": "2025-01-14",
+      "source": 181,
+      "valid": 177,
+      "excluded": 4,
+      "riskPoints": 0,
+      "minRoadTemp": 3.6,
+      "maxRoadTemp": 9.3,
+      "excludedExamples": [
+        "21,0,0,2353",
+        "21,5684,127,1180"
+      ]
+    },
+    {
+      "date": "2025-01-15",
+      "source": 245,
+      "valid": 245,
+      "excluded": 0,
+      "riskPoints": 66,
+      "minRoadTemp": -3.3,
+      "maxRoadTemp": 7.2,
+      "excludedExamples": []
+    },
+    {
+      "date": "2025-01-22",
+      "source": 137,
+      "valid": 135,
+      "excluded": 2,
+      "riskPoints": 0,
+      "minRoadTemp": 2.5,
+      "maxRoadTemp": 9.9,
+      "excludedExamples": [
+        "19,6603,127,1981",
+        "24,7832,127,2324"
+      ]
+    },
+    {
+      "date": "2025-01-23",
+      "source": 130,
+      "valid": 126,
+      "excluded": 4,
+      "riskPoints": 34,
+      "minRoadTemp": -2.5,
+      "maxRoadTemp": 4.7,
+      "excludedExamples": [
+        "16,0,0,1196",
+        "28,1317,127,2058"
+      ]
+    },
+    {
+      "date": "2025-02-17",
+      "source": 168,
+      "valid": 166,
+      "excluded": 2,
+      "riskPoints": 0,
+      "minRoadTemp": 0.4,
+      "maxRoadTemp": 6.1,
+      "excludedExamples": [
+        "22,585,126,1307",
+        "25,507,126,3657"
+      ]
+    },
+    {
+      "date": "2025-02-18",
+      "source": 207,
+      "valid": 207,
+      "excluded": 0,
+      "riskPoints": 55,
+      "minRoadTemp": -3.4,
+      "maxRoadTemp": 3,
+      "excludedExamples": []
+    },
+    {
+      "date": "2025-02-24",
+      "source": 141,
+      "valid": 139,
+      "excluded": 2,
+      "riskPoints": 1,
+      "minRoadTemp": -1,
+      "maxRoadTemp": 4,
+      "excludedExamples": [
+        "30,0,0,5382",
+        "26,1174,126,4630"
+      ]
+    },
+    {
+      "date": "2025-02-27",
+      "source": 138,
+      "valid": 138,
+      "excluded": 0,
+      "riskPoints": 127,
+      "minRoadTemp": -4,
+      "maxRoadTemp": 1.7,
+      "excludedExamples": []
+    }
+  ]
+}
