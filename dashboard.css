@@ -33,9 +33,17 @@ body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 /* 관측 구간 온도 추이 차트 */
 .trend-card{margin-top:20px}
 .trend-chart-wrap{width:100%}
-.trend-svg{width:100%;height:190px;display:block}
+.trend-legend{display:flex;gap:16px;margin-bottom:8px}
+.trend-legend-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:600}
+.trend-legend-chip i{width:9px;height:9px;border-radius:2px;display:inline-block}
+.trend-plot-wrap{position:relative}
+.trend-svg{width:100%;height:190px;display:block;cursor:crosshair}
 .trend-axis-label{font-size:10px;fill:var(--muted)}
 .trend-th-label{font-size:10px;font-weight:700}
 .trend-empty{padding:30px 0;text-align:center;color:var(--muted);font-size:12px}
-@media(max-width:760px){.trend-svg{height:150px}}
-@media print{.trend-card{break-inside:avoid}}
+.trend-tooltip{position:absolute;pointer-events:none;background:var(--card,#fff);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 20px rgba(23,43,70,.12);padding:9px 11px;min-width:140px;z-index:5;font-size:11.5px}
+.trend-tooltip-time{font-weight:700;color:var(--navy);margin-bottom:5px;font-size:11px}
+.trend-tooltip-row{display:flex;align-items:center;justify-content:space-between;gap:14px;color:var(--muted);padding:1px 0}
+.trend-tooltip-row b{color:var(--navy);font-weight:700}
+@media(max-width:760px){.trend-svg{height:150px}.trend-legend{gap:10px;flex-wrap:wrap}}
+@media print{.trend-card{break-inside:avoid}.trend-tooltip{display:none!important}}
