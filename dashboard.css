@@ -1,4 +1,5 @@
 /* Presentation layout: overview, observation map, supporting information. */
+.dashboard+.headline-metrics{margin-top:20px;margin-bottom:0}
 .settings-body>.tools-bar{width:100%;margin:0;padding-bottom:18px;border-bottom:1px solid var(--border)}
 :root{--bg:#f3f6fa;--navy:#172b46;--navy-soft:#4b6079;--muted:#65768c;--border:#dce4ed}
 body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}

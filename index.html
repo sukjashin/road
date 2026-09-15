@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-2">
+<link rel="stylesheet" href="dashboard.css?v=20260915-3">
 </head>
 <body>
 <div class="page">
@@ -291,11 +291,6 @@
     <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
   </section>
 
-  <section class="headline-metrics" aria-label="핵심 관측 결과">
-    <div class="metric primary"><span class="eyebrow">TEMPERATURE</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
-    <div class="metric"><span class="eyebrow">RISK SECTIONS</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수</span></div>
-    <div class="metric context"><span class="eyebrow">OBSERVATION RECORD</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
-  </section>
   <div class="dashboard">
     <aside class="card left-card">
       <div class="card-head"><span class="head-bar"></span><h2>관측 요약</h2></div>
@@ -329,6 +324,12 @@
     </div>
   </div>
 
+
+  <section class="headline-metrics" aria-label="핵심 관측 결과">
+    <div class="metric primary"><span class="eyebrow">TEMPERATURE</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
+    <div class="metric"><span class="eyebrow">RISK SECTIONS</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수</span></div>
+    <div class="metric context"><span class="eyebrow">OBSERVATION RECORD</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
+  </section>
 
   <section class="card coverage-card"><div class="card-head"><span class="head-bar"></span><h2>선택 자료의 수집 정보</h2><span class="head-meta">전체 선택자료 기준</span></div><table class="status-table"><tbody><tr id="coverageRow"></tr></tbody></table></section>
   <details class="settings"><summary>추가 기능 <span>시간 재생 · 인쇄 · 분석 설정 · 파일 관리</span></summary><div class="settings-body">  <div class="tools-bar">
