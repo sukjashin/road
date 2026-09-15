@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-5">
+<link rel="stylesheet" href="dashboard.css?v=20260915-6">
 </head>
 <body>
 <div class="page">
@@ -425,10 +425,25 @@ function tempToColor(t){ return colorFromStops(t, ICE_STOPS); }
 // 현재 모드(결빙/폭염)에 맞는 색상 스케일 적용
 function colorFor(t){ return colorFromStops(t, MODE === 'heat' ? HEAT_STOPS : ICE_STOPS); }
 function riskColor(){ return MODE === 'heat' ? '#e6484f' : '#2563eb'; }
-const CAUTION_COLOR = '#f0a93e';
-// 클러스터/구간의 심각도에 맞는 색상 (위험: 모드별 강조색, 주의: 공통 주의색)
-function severityColor(sev){ return sev === 'danger' ? riskColor() : CAUTION_COLOR; }
+// 주의구간 색상: 결빙 모드는 위험(파랑)과 뚜렷이 구분되도록 빨강, 폭염 모드는 위험(빨강)과 구분되도록 주황
+function cautionColor(){ return MODE === 'heat' ? '#f0a93e' : '#dc2626'; }
+// 클러스터/구간의 심각도에 맞는 색상 (위험: 모드별 강조색, 주의: cautionColor())
+function severityColor(sev){ return sev === 'danger' ? riskColor() : cautionColor(); }
 function rgb(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
+
+// 앞뒤 점 모두와 비현실적으로 먼 "튀는" 좌표(GPS 순간이동 왕복)는 단독 위험/주의 마커로 표시하지 않도록 정상 처리
+function markGpsOutliers(data){
+  return data.map((d, i) => {
+    const prev = data[i-1], next = data[i+1];
+    if(!prev || !next || d.r === 'normal') return d;
+    const distPrev = haversineKm([prev.la,prev.lo], [d.la,d.lo]);
+    const distNext = haversineKm([d.la,d.lo], [next.la,next.lo]);
+    if(isGpsGlitch(prev, d, distPrev) && isGpsGlitch(d, next, distNext)){
+      return { ...d, r: 'normal' };
+    }
+    return d;
+  });
+}
 
 /* ---------- 위험/주의구간 클러스터 ---------- */
 // 위험(danger) 또는 주의(caution) 판정을 받은 연속 관측점을 하나의 구간으로 묶는다.
@@ -522,7 +537,7 @@ function renderTrendChart(container, allPts){
     <div class="trend-legend">
       <span class="trend-legend-chip"><i style="background:#33456b"></i>${lineLabel}</span>
       <span class="trend-legend-chip"><i style="background:${riskColor()}"></i>위험구간</span>
-      <span class="trend-legend-chip"><i style="background:${CAUTION_COLOR}"></i>주의구간</span>
+      <span class="trend-legend-chip"><i style="background:${cautionColor()}"></i>주의구간</span>
     </div>
     <div class="trend-plot-wrap">
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="trend-svg">
@@ -536,8 +551,8 @@ function renderTrendChart(container, allPts){
         <line x1="${padL}" y1="${padT+plotH}" x2="${W-padR}" y2="${padT+plotH}" stroke="#dbe1ec" stroke-width="1"></line>
         <line x1="${padL}" y1="${dangerY.toFixed(1)}" x2="${W-padR}" y2="${dangerY.toFixed(1)}" stroke="${riskColor()}" stroke-width="1.2" stroke-dasharray="4,4"></line>
         <text x="${W-padR}" y="${(dangerY-4).toFixed(1)}" text-anchor="end" class="trend-th-label" fill="${riskColor()}">${dangerLabel}</text>
-        <line x1="${padL}" y1="${cautionY.toFixed(1)}" x2="${W-padR}" y2="${cautionY.toFixed(1)}" stroke="${CAUTION_COLOR}" stroke-width="1.2" stroke-dasharray="4,4"></line>
-        <text x="${W-padR}" y="${(cautionY-4).toFixed(1)}" text-anchor="end" class="trend-th-label" fill="${CAUTION_COLOR}">${cautionLabel}</text>
+        <line x1="${padL}" y1="${cautionY.toFixed(1)}" x2="${W-padR}" y2="${cautionY.toFixed(1)}" stroke="${cautionColor()}" stroke-width="1.2" stroke-dasharray="4,4"></line>
+        <text x="${W-padR}" y="${(cautionY-4).toFixed(1)}" text-anchor="end" class="trend-th-label" fill="${cautionColor()}">${cautionLabel}</text>
         <polygon points="${areaPts}" fill="url(#${gradId})"></polygon>
         <polyline points="${linePts}" fill="none" stroke="#33456b" stroke-width="1.6"></polyline>
         ${dots}
@@ -561,7 +576,7 @@ function renderTrendChart(container, allPts){
   const tooltip = container.querySelector('#trendTooltip');
   const plotWrap = container.querySelector('.trend-plot-wrap');
   const levelText = { danger: '위험', caution: '주의', normal: '정상' };
-  const levelColor = { danger: riskColor(), caution: CAUTION_COLOR, normal: 'var(--safe)' };
+  const levelColor = { danger: riskColor(), caution: cautionColor(), normal: 'var(--safe)' };
 
   function pointerToIndex(clientX){
     const rect = svg.getBoundingClientRect();
@@ -857,7 +872,7 @@ function drawRoute(points, locationLabel){
     validLatLngs.push([a.la,a.lo], [b.la,b.lo]);
   }
 
-  const clusters = buildRiskClusters(points);
+  const clusters = buildRiskClusters(markGpsOutliers(points));
   clusters.forEach(({ points: cluster, severity }) => {
     const temps = cluster.map(d => d.te);
     const avgTemp = temps.reduce((s,v)=>s+v,0) / temps.length;
@@ -975,7 +990,7 @@ function drawFromRoutes(routes, fileNames){
 
   routes.forEach(route => {
     const points = toRiskPoints(route.rows);
-    allPts = allPts.concat(points);
+    allPts = allPts.concat(markGpsOutliers(points));
     const { clusters, distanceKm, validLatLngs } = drawRoute(points, route.location);
     allClusters = allClusters.concat(clusters);
     totalDistanceKm += distanceKm;
@@ -1179,6 +1194,9 @@ function applyModeLabels(){
   document.getElementById('legendTitle').textContent = heat ? '기온' : '노면온도';
   document.getElementById('legendRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
   document.getElementById('legendCautionLabel').textContent = heat ? '폭염 주의구간' : '결빙 주의구간';
+  const legendCautionDot = document.getElementById('legendCautionDot');
+  legendCautionDot.style.background = cautionColor();
+  legendCautionDot.style.boxShadow = `0 0 0 1px ${cautionColor()}`;
   const scaleStops = heat ? HEAT_STOPS : ICE_STOPS;
   const scaleColors = scaleStops.map(s => rgb(s[1])).join(',');
   document.getElementById('legendBar').style.background = `linear-gradient(to right, ${scaleColors})`;
