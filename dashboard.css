@@ -42,5 +42,6 @@ body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 .trend-tooltip-time{font-weight:700;color:var(--navy);margin-bottom:5px;font-size:11px}
 .trend-tooltip-row{display:flex;align-items:center;justify-content:space-between;gap:14px;color:var(--muted);padding:1px 0}
 .trend-tooltip-row b{color:var(--navy);font-weight:700}
+.trend-tooltip-hint{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);font-size:10px;color:var(--accent)}
 @media(max-width:760px){.trend-svg{height:150px}.trend-legend{gap:10px;flex-wrap:wrap}}
 @media print{.trend-card{break-inside:avoid}.trend-tooltip{display:none!important}}
