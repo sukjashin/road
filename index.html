@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-6">
+<link rel="stylesheet" href="dashboard.css?v=20260915-7">
 </head>
 <body>
 <div class="page">
@@ -291,6 +291,11 @@
     <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
   </section>
 
+  <section class="card trend-card" aria-label="구간 온도 추이">
+    <div class="card-head"><span class="head-bar"></span><h2>관측 구간 온도 추이</h2><span class="head-meta">위험 · 주의 기준선 포함</span></div>
+    <div id="trendChart" class="trend-chart-wrap"></div>
+  </section>
+
   <div class="dashboard">
     <aside class="card left-card">
       <div class="card-head"><span class="head-bar"></span><h2>관측 요약</h2></div>
@@ -299,6 +304,9 @@
         <div><dt>평균온도</dt><dd id="curAvgTemp">-</dd></div>
         <div><dt>표시 관측점</dt><dd id="curTotal">-</dd></div>
         <div><dt id="curDistanceLabel">관측거리</dt><dd id="curDistance">-</dd></div>
+        <div><dt>이동경로</dt><dd id="curRouteCount">-</dd></div>
+        <div><dt>수집 주기(추정)</dt><dd id="curInterval">-</dd></div>
+        <div><dt>관측 기간</dt><dd id="curDuration">-</dd></div>
       </dl>
       <div class="card-head sub"><span class="head-bar"></span><h2>판정 현황</h2></div>
       <table class="status-table"><tbody><tr id="statusRow"></tr></tbody></table>
@@ -331,13 +339,6 @@
     <div class="metric"><span class="eyebrow">위험구간 집계</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수 <b id="curCautionCount" class="metric-caution">-</b></span></div>
     <div class="metric context"><span class="eyebrow">자료 구분</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
   </section>
-
-  <section class="card trend-card" aria-label="구간 온도 추이">
-    <div class="card-head"><span class="head-bar"></span><h2>관측 구간 온도 추이</h2><span class="head-meta">위험 · 주의 기준선 포함</span></div>
-    <div id="trendChart" class="trend-chart-wrap"></div>
-  </section>
-
-  <section class="card coverage-card"><div class="card-head"><span class="head-bar"></span><h2>선택 자료의 수집 정보</h2><span class="head-meta">전체 선택자료 기준</span></div><table class="status-table"><tbody><tr id="coverageRow"></tr></tbody></table></section>
   <details class="settings"><summary>추가 기능 <span>시간 재생 · 인쇄 · 분석 설정 · 파일 관리</span></summary><div class="settings-body">  <div class="tools-bar">
     <div class="tool-group grow">
       <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
@@ -1112,13 +1113,11 @@ function renderStationDashboard(routes, fileNames){
     timeLabel.textContent = '-';
   }
 
-  const routeLocations = Array.from(new Set(routes.map(r => (r.location || '').trim()).filter(Boolean)));
-  document.getElementById('coverageRow').innerHTML =
-    statusColumn('관측 장소', 'blue', routeLocations.length ? routeLocations.join(', ') : '미입력', '') +
-    statusColumn('이동경로', 'blue', routes.length.toLocaleString()+'개', fileNames.length+'개 파일') +
-    statusColumn('총 관측건수', 'blue', totalPts.toLocaleString()+'건', '') +
-    statusColumn('수집 주기(추정)', 'blue', formatIntervalMs(medianMs), '') +
-    statusColumn('관측 기간', 'blue', (minMs !== null && maxMs !== null) ? `${Math.max(1, Math.round((maxMs-minMs)/60000))}분` : '-', '');
+  document.getElementById('curRouteCount').textContent = routes.length.toLocaleString() + '개';
+  document.getElementById('curInterval').textContent = formatIntervalMs(medianMs);
+  document.getElementById('curDuration').textContent = (minMs !== null && maxMs !== null)
+    ? `${Math.max(1, Math.round((maxMs-minMs)/60000))}분`
+    : '-';
 
   redraw();
 }
