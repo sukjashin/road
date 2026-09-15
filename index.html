@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-9">
+<link rel="stylesheet" href="dashboard.css?v=20260915-10">
 </head>
 <body>
 <div class="page">
@@ -844,6 +844,38 @@ function isGpsGlitch(a, b, distKm){
   return (distKm / dtHr) > MAX_PLAUSIBLE_KMH;
 }
 
+// 관측장비 로그에서 위·경도가 정수 자리(도) 경계를 넘을 때 정수부가 한 박자 늦게 올라가는 결함이 관측됨
+// (예: 34.9936 -> 34.0014 -> 35.0081, 실제로는 34.9936 -> 35.0014 -> 35.0081).
+// 이 경우 위경도가 실제로는 ±1도(약 90~111km)만큼만 어긋난 것이므로, 앞뒤 정상 지점과 비교해
+// ±1도 보정했을 때 이동속도가 현실적인 범위로 돌아오면 그 보정값을 실제 좌표로 채택한다.
+// (결측값을 추정해서 채우는 것이 아니라, 로거가 잘못 기록한 정수부를 실제 기록된 소수부 기준으로 복원하는 것)
+function repairIntegerCarry(rows){
+  const CANDS = [-1, 0, 1];
+  for(let i = 0; i < rows.length; i++){
+    const cur = rows[i];
+    const ref = rows[i-1] || rows[i+1];
+    if(!ref) continue;
+    const dtHr = Math.max(Math.abs(parseTimeMs(cur.time) - parseTimeMs(ref.time)) / 3600000, 1/3600);
+    const origDist = haversineKm([ref.lat, ref.lon], [cur.lat, cur.lon]);
+    if((origDist / dtHr) <= MAX_PLAUSIBLE_KMH) continue; // 이미 현실적인 이동 범위
+
+    let best = null;
+    CANDS.forEach(dLat => {
+      CANDS.forEach(dLon => {
+        if(dLat === 0 && dLon === 0) return;
+        const lat = cur.lat + dLat, lon = cur.lon + dLon;
+        const dist = haversineKm([ref.lat, ref.lon], [lat, lon]);
+        if(!best || dist < best.dist) best = { lat, lon, dist };
+      });
+    });
+    if(best && (best.dist / dtHr) <= MAX_PLAUSIBLE_KMH){
+      cur.lat = best.lat;
+      cur.lon = best.lon;
+    }
+  }
+  return rows;
+}
+
 // 한 이동경로(파일 내 지점 ID)를 그라데이션 선 + 위험구간 클러스터로 그림
 function drawRoute(points, locationLabel){
   const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
@@ -1326,6 +1358,7 @@ runBtn.addEventListener('click', () => {
 
   const routes = Array.from(siteMap.values()).map(({ site, fileName, location, rows }) => {
     rows.sort((a, b) => a.time < b.time ? -1 : (a.time > b.time ? 1 : 0));
+    repairIntegerCarry(rows);
     return { site, fileName, location, rows };
   });
   const totalPts = routes.reduce((s, r) => s + r.rows.length, 0);
@@ -1389,6 +1422,7 @@ function showRoadObservations(){
     });
     sites.forEach((siteRows, site) => {
       siteRows.sort((a,b) => a.time.localeCompare(b.time));
+      repairIntegerCarry(siteRows);
       routes.push({site, fileName:file.name, location:road.label, rows:siteRows});
     });
   });
