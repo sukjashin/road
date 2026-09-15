@@ -454,6 +454,11 @@ function buildRiskClusters(data){
   let cur = null;
   data.forEach(d => {
     if(d.r === 'O'){
+      if(cur && isGpsGlitch(cur[cur.length-1], d, haversineKm(
+        [cur[cur.length-1].la, cur[cur.length-1].lo], [d.la,d.lo]))){
+        clusters.push(cur);
+        cur = null;
+      }
       if(!cur) cur = [];
       cur.push(d);
     } else {
@@ -612,8 +617,11 @@ function parseStationLine(line){
   const lonDecStr = (parts[11] || '').trim();
   if(!latIntStr || !latDecStr || !lonIntStr || !lonDecStr) return null;
 
-  const lat = parseFloat(latIntStr) + parseInt(latDecStr, 10) / Math.pow(10, latDecStr.length);
-  const lon = parseFloat(lonIntStr) + parseInt(lonDecStr, 10) / Math.pow(10, lonDecStr.length);
+  // 관측파일의 좌표 소수부는 1/10000도 단위 정수이며 앞자리 0이 생략될 수 있음.
+  // 예: 35,980 -> 35.0980 (35.980이 아님).
+  if(!/^\d{1,4}$/.test(latDecStr) || !/^\d{1,4}$/.test(lonDecStr)) return null;
+  const lat = Number(latIntStr) + Number(latDecStr) / 10000;
+  const lon = Number(lonIntStr) + Number(lonDecStr) / 10000;
   const roadTemp = parseFloat(parts[14]);
   if(!isFinite(lat) || !isFinite(lon) || !isFinite(roadTemp)) return null;
   // GPS 미수신(0,0) 등 대한민국 범위를 벗어난 좌표는 결측치로 간주하고 제외
