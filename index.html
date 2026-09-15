@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-7">
+<link rel="stylesheet" href="dashboard.css?v=20260915-8">
 </head>
 <body>
 <div class="page">
@@ -334,11 +334,6 @@
   </div>
 
 
-  <section class="headline-metrics" aria-label="핵심 관측 결과">
-    <div class="metric primary"><span class="eyebrow">온도 지표</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
-    <div class="metric"><span class="eyebrow">위험구간 집계</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수 <b id="curCautionCount" class="metric-caution">-</b></span></div>
-    <div class="metric context"><span class="eyebrow">자료 구분</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
-  </section>
   <details class="settings"><summary>추가 기능 <span>시간 재생 · 인쇄 · 분석 설정 · 파일 관리</span></summary><div class="settings-body">  <div class="tools-bar">
     <div class="tool-group grow">
       <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
@@ -1004,9 +999,6 @@ function drawFromRoutes(routes, fileNames){
   }
 
   if(allPts.length === 0){
-    document.getElementById('curMinTemp').textContent = '-';
-    document.getElementById('curRiskCount').textContent = '0';
-    document.getElementById('curCautionCount').textContent = '-';
     document.getElementById('curAvgTemp').textContent = '-';
     document.getElementById('curTotal').textContent = '0개';
     document.getElementById('curDistance').textContent = '0.0km';
@@ -1031,9 +1023,6 @@ function drawFromRoutes(routes, fileNames){
   const dangerClusters = allClusters.filter(c => c.severity === 'danger');
   const cautionClusters = allClusters.filter(c => c.severity === 'caution');
 
-  document.getElementById('curMinTemp').textContent = keyTemp.toFixed(1) + '℃';
-  document.getElementById('curRiskCount').textContent = dangerClusters.length;
-  document.getElementById('curCautionCount').textContent = cautionClusters.length ? `주의구간 별도 ${cautionClusters.length}곳` : '주의구간 없음';
   document.getElementById('curAvgTemp').textContent = avgTemp.toFixed(1) + '℃';
   document.getElementById('curTotal').textContent = allPts.length.toLocaleString() + '개';
   document.getElementById('curDistance').textContent = totalDistanceKm.toFixed(1) + 'km';
@@ -1186,10 +1175,6 @@ function applyModeLabels(){
   document.getElementById('brandTitle').textContent = heat
     ? '도로 폭염 구간 관측 현황'
     : '도로결빙 구간 관측 현황';
-  document.getElementById('thMinTempLabel').textContent = heat ? '최고기온' : '최저 노면온도';
-  document.getElementById('thRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
-  document.getElementById('curMinTempIcon').textContent = heat ? '🔥' : '❄️';
-  document.getElementById('curMinTempSub').textContent = heat ? '기온(℃)' : '노면온도(℃)';
   document.getElementById('legendTitle').textContent = heat ? '기온' : '노면온도';
   document.getElementById('legendRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
   document.getElementById('legendCautionLabel').textContent = heat ? '폭염 주의구간' : '결빙 주의구간';
