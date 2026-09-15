@@ -262,6 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
+<link rel="stylesheet" href="dashboard.css?v=20260915-1">
 </head>
 <body>
 <div class="page">
@@ -270,7 +271,7 @@
     <div class="brand">
       <span class="brand-badge"></span>
       <div>
-        <div class="brand-title" id="brandTitle">도로결빙 위험구간 관측 지도</div>
+        <div class="brand-title" id="brandTitle">도로결빙 구간 관측 현황</div>
         <div class="brand-sub" id="brandSub">강진 구간 · 지면(노면)온도 센서 이동관측</div>
       </div>
     </div>
@@ -282,7 +283,7 @@
   </div>
 
   <section class="road-menu" aria-label="과거 관측 도로 선택">
-    <strong>국도별 관측 사례</strong>
+    <strong class="section-label">관측 대상 선택</strong>
     <div class="road-buttons" id="roadMenu">
       <button type="button" class="road-btn" data-road="27">27번국도(곡성~고흥) · 2025년 1월</button>
       <button type="button" class="road-btn" data-road="24">24번국도(담양~신안) · 2025년 2월</button>
@@ -291,20 +292,61 @@
     <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
   </section>
 
-  <div class="file-bar">
-    <div class="file-controls">
-      <label class="file-btn" for="fileInput">+ 관측파일 추가</label>
-      <input type="file" id="fileInput" accept=".txt" multiple style="display:none" />
-      <button class="run-btn" id="runBtn" disabled>실행</button>
-      <button class="reset-btn" id="resetBtn">초기화(내장자료)</button>
-      <span class="file-hint">지점_real / 지점_aws 형식의 txt 관측파일을 추가한 뒤 실행을 누르세요</span>
+  <div class="tools-bar">
+    <div class="tool-group grow">
+      <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
+      <div class="tool-row">
+        <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="100" disabled>
+        <button class="reset-btn" id="playBtn">▶ 재생</button>
+      </div>
     </div>
-    <div class="file-chips" id="fileChips"></div>
-    <div class="file-status" id="fileStatus"></div>
+    <div class="tool-group">
+      <div class="tool-label">&nbsp;</div>
+      <button class="run-btn export-btn" id="exportBtn">인쇄 / PDF</button>
+    </div>
   </div>
 
-  <div class="tools-bar">
-    <div class="tool-group" id="icingThresholds">
+  <section class="headline-metrics" aria-label="핵심 관측 결과">
+    <div class="metric primary"><span class="eyebrow">TEMPERATURE</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
+    <div class="metric"><span class="eyebrow">RISK SECTIONS</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수</span></div>
+    <div class="metric context"><span class="eyebrow">OBSERVATION RECORD</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
+  </section>
+  <div class="dashboard">
+    <aside class="card left-card">
+      <div class="card-head"><span class="head-bar"></span><h2>관측 요약</h2></div>
+      <div class="head-meta" id="obsMeta">-</div>
+      <dl class="summary-metrics">
+        <div><dt>평균온도</dt><dd id="curAvgTemp">-</dd></div>
+        <div><dt>표시 관측점</dt><dd id="curTotal">-</dd></div>
+        <div><dt id="curDistanceLabel">관측거리</dt><dd id="curDistance">-</dd></div>
+      </dl>
+      <div class="card-head sub"><span class="head-bar"></span><h2>판정 현황</h2></div>
+      <table class="status-table"><tbody><tr id="statusRow"></tr></tbody></table>
+      <div class="method-note"><strong>관측자료 해석</strong><p>위험구간은 설정한 온도 또는 마찰계수 기준에 해당하는 연속 관측점입니다. 실제 결빙 확인 여부와 구분해 해석하세요.</p><p>지도는 기록된 GPS 위치를 연결합니다. 도로와의 정확한 일치 여부는 별도 확인이 필요합니다.</p></div>
+    </aside>
+
+    <!-- 오른쪽: 지도 -->
+    <div class="card right-card">
+      <div class="card-head">
+        <span class="head-bar"></span>
+        <h2>노선별 관측 분포</h2>
+        <span class="head-meta">위험구간 클릭 시 상세정보</span>
+      </div>
+      <div id="mapWrap">
+        <div id="map"></div>
+        <div class="map-legend">
+          <div class="lg-title" id="legendTitle">노면온도</div>
+          <div class="legend-bar" id="legendBar"></div>
+          <div class="legend-scale" id="legendScale"><span>-3℃</span><span>1℃</span><span>5℃+</span></div>
+          <div class="legend-row"><span class="legend-dot" id="legendDot"></span><span id="legendRiskLabel">결빙 위험구간</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <section class="card coverage-card"><div class="card-head"><span class="head-bar"></span><h2>선택 자료의 수집 정보</h2><span class="head-meta">전체 선택자료 기준</span></div><table class="status-table"><tbody><tr id="coverageRow"></tr></tbody></table></section>
+  <details class="settings"><summary>분석 설정 및 관측파일 관리 <span>판정 기준 조정 · 추가 자료 불러오기</span></summary><div class="settings-body">    <div class="tool-group" id="icingThresholds">
       <div class="tool-label">임계값 설정 (결빙)</div>
       <div class="tool-row">
         <label>위험 노면온도 ≤ <input type="number" id="thDangerTemp" class="th-input" step="0.1" value="-1">℃</label>
@@ -319,89 +361,20 @@
         <label>위험 기온 ≥ <input type="number" id="thHeatDanger" class="th-input" step="0.5" value="35">℃</label>
       </div>
     </div>
-    <div class="tool-group grow">
-      <div class="tool-label">시간 재생 <span id="timeLabel">-</span></div>
-      <div class="tool-row">
-        <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="100" disabled>
-        <button class="reset-btn" id="playBtn">▶ 재생</button>
-      </div>
+  <div class="file-bar">
+    <div class="file-controls">
+      <label class="file-btn" for="fileInput">+ 관측파일 추가</label>
+      <input type="file" id="fileInput" accept=".txt" multiple style="display:none" />
+      <button class="run-btn" id="runBtn" disabled>실행</button>
+      <button class="reset-btn" id="resetBtn">초기화(내장자료)</button>
+      <span class="file-hint">지점_real / 지점_aws 형식의 txt 관측파일을 추가한 뒤 실행을 누르세요</span>
     </div>
-    <div class="tool-group">
-      <div class="tool-label">&nbsp;</div>
-      <button class="run-btn export-btn" id="exportBtn">🖨 인쇄/PDF 저장</button>
-    </div>
+    <div class="file-chips" id="fileChips"></div>
+    <div class="file-status" id="fileStatus"></div>
   </div>
 
-  <div class="dashboard">
-    <!-- 왼쪽: 관측 데이터 -->
-    <div class="card left-card">
-      <div class="card-head">
-        <span class="head-bar"></span>
-        <h2>관측 데이터</h2>
-        <span class="head-meta" id="obsMeta">-</span>
-      </div>
-      <table class="info-table">
-        <thead>
-          <tr><th id="thMinTempLabel">최저 노면온도</th><th id="thRiskLabel">결빙 위험구간</th><th>관측 정보</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>
-              <div class="temp-icon" id="curMinTempIcon">❄️</div>
-              <div class="temp-value" id="curMinTemp">-</div>
-              <div class="temp-sub" id="curMinTempSub">노면온도(℃)</div>
-            </td>
-            <td>
-              <div class="temp-icon">⚠️</div>
-              <div class="risk-value" id="curRiskCount">-</div>
-              <div class="temp-sub">구간 수</div>
-            </td>
-            <td class="info-cell">
-              <ul>
-                <li><span class="dot blue"></span>평균온도<b id="curAvgTemp">-</b></li>
-                <li><span class="dot blue"></span>관측지점<b id="curTotal">-</b></li>
-                <li><span class="dot green"></span><span id="curDistanceLabel">관측거리</span><b id="curDistance">90.7km</b></li>
-              </ul>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <div class="card-head sub">
-        <span class="head-bar"></span>
-        <h2>위험기상정보</h2>
-      </div>
-      <table class="status-table">
-        <tr id="statusRow"></tr>
-      </table>
-
-      <div class="card-head sub">
-        <span class="head-bar"></span>
-        <h2>관측망 커버리지</h2>
-      </div>
-      <table class="status-table">
-        <tr id="coverageRow"></tr>
-      </table>
-    </div>
-
-    <!-- 오른쪽: 지도 -->
-    <div class="card right-card">
-      <div class="card-head">
-        <span class="head-bar"></span>
-        <h2>지도 보기</h2>
-        <span class="head-meta">위험구간 클릭 시 상세정보</span>
-      </div>
-      <div id="mapWrap">
-        <div id="map"></div>
-        <div class="map-legend">
-          <div class="lg-title" id="legendTitle">노면온도</div>
-          <div class="legend-bar" id="legendBar"></div>
-          <div class="legend-scale" id="legendScale"><span>-3℃</span><span>1℃</span><span>5℃+</span></div>
-          <div class="legend-row"><span class="legend-dot" id="legendDot"></span><span id="legendRiskLabel">결빙 위험구간</span></div>
-        </div>
-      </div>
-    </div>
-  </div>
+</div></details>
+  <footer class="page-footer">도로 기상 이동관측 · 과거 관측 사례 검토용 <span>화면 개편 · 2026.09</span></footer>
 
 </div>
 
@@ -521,7 +494,7 @@ L.control.layers({
   '위성지도': satelliteLayer
 }, {
   '위험구간 표시': routeLayer
-}, { position:'topright', collapsed:false }).addTo(map);
+}, { position:'topleft', collapsed:true }).addTo(map);
 
 function statusColumn(label, dotClass, text, sub){
   return `
@@ -779,11 +752,11 @@ function drawRoute(points, locationLabel){
       <div class="popup-row">구간 내 관측지점: ${cluster.length}개</div>
       <div class="popup-row">${statLine}</div>
       ${MODE !== 'heat' ? `<div class="popup-row">최저 마찰계수: ${minFriction !== null ? minFriction.toFixed(2) : '-'}</div>` : ''}
-      <div class="popup-row" style="margin-top:6px;">위성사진 (실사)</div>
+      <div class="popup-section">대표 관측점 · 위성영상</div><div class="popup-row">${mid.t} · ${mid.la.toFixed(4)}, ${mid.lo.toFixed(4)}</div><div class="popup-note">구간 중간 순서의 GPS 관측점입니다. 실제 도로 위치와 다를 수 있습니다.</div>
       <div class="popup-sat" id="${satId}"></div>
       <div class="popup-row" style="margin-top:6px;">구간 내 ${MODE === 'heat' ? '기온' : '온도'} 변화</div>
       ${sparkSvg}
-    `, { maxWidth: 260 });
+    `, { maxWidth: 300, maxHeight: 440, autoPanPaddingTopLeft: [20, 60], autoPanPaddingBottomRight: [20, 20] });
 
     // 팝업이 열릴 때 그 지점을 중심으로 한 위성사진 미니맵 생성, 닫히면 정리(메모리 누수 방지)
     let satMap = null;
@@ -918,15 +891,13 @@ function drawFromRoutes(routes, fileNames){
     keyText = keyTemp <= DANGER_ROAD_TEMP ? '위험' : (keyTemp <= CAUTION_ROAD_TEMP ? '주의' : '정상');
   }
   const riskDotS = allClusters.length > 0 ? 'risk' : 'green';
-  const riskTextS = allClusters.length > 0 ? '위험' : '정상';
+  const riskTextS = allClusters.length > 0 ? '기준 해당' : '기준 미해당';
   const tempColLabel = MODE === 'heat' ? '기온(℃)' : '노면온도(℃)';
   const riskColLabel = MODE === 'heat' ? '폭염위험구간' : '결빙위험구간';
 
   document.getElementById('statusRow').innerHTML =
     statusColumn(tempColLabel, keyDot, keyText, keyTemp.toFixed(1)+'℃') +
-    statusColumn(riskColLabel, riskDotS, riskTextS, allClusters.length+'곳') +
-    statusColumn('관측지점', 'green', '정상', allPts.length.toLocaleString()+'개') +
-    statusColumn('관측거리', 'green', '정상', totalDistanceKm.toFixed(1)+'km');
+    statusColumn(riskColLabel, riskDotS, riskTextS, allClusters.length+'곳');
 }
 
 // 임계값/시간 슬라이더가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
@@ -1039,8 +1010,8 @@ function applyModeLabels(){
   document.documentElement.style.setProperty('--risk', riskColor());
   document.documentElement.style.setProperty('--risk-soft', heat ? '#fdeceb' : '#eaf1ff');
   document.getElementById('brandTitle').textContent = heat
-    ? '도로 폭염 위험구간 관측 지도'
-    : '도로결빙 위험구간 관측 지도';
+    ? '도로 폭염 구간 관측 현황'
+    : '도로결빙 구간 관측 현황';
   document.getElementById('thMinTempLabel').textContent = heat ? '최고기온' : '최저 노면온도';
   document.getElementById('thRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
   document.getElementById('curMinTempIcon').textContent = heat ? '🔥' : '❄️';
