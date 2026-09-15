@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-1">
+<link rel="stylesheet" href="dashboard.css?v=20260915-2">
 </head>
 <body>
 <div class="page">
@@ -288,23 +288,8 @@
       <button type="button" class="road-btn" data-road="27">27번국도(곡성~고흥) · 2025년 1월</button>
       <button type="button" class="road-btn" data-road="24">24번국도(담양~신안) · 2025년 2월</button>
     </div>
-    <label>관측일<select id="observationDate" aria-label="관측일 선택"></select></label>
     <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
   </section>
-
-  <div class="tools-bar">
-    <div class="tool-group grow">
-      <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
-      <div class="tool-row">
-        <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="100" disabled>
-        <button class="reset-btn" id="playBtn">▶ 재생</button>
-      </div>
-    </div>
-    <div class="tool-group">
-      <div class="tool-label">&nbsp;</div>
-      <button class="run-btn export-btn" id="exportBtn">인쇄 / PDF</button>
-    </div>
-  </div>
 
   <section class="headline-metrics" aria-label="핵심 관측 결과">
     <div class="metric primary"><span class="eyebrow">TEMPERATURE</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
@@ -346,7 +331,21 @@
 
 
   <section class="card coverage-card"><div class="card-head"><span class="head-bar"></span><h2>선택 자료의 수집 정보</h2><span class="head-meta">전체 선택자료 기준</span></div><table class="status-table"><tbody><tr id="coverageRow"></tr></tbody></table></section>
-  <details class="settings"><summary>분석 설정 및 관측파일 관리 <span>판정 기준 조정 · 추가 자료 불러오기</span></summary><div class="settings-body">    <div class="tool-group" id="icingThresholds">
+  <details class="settings"><summary>추가 기능 <span>시간 재생 · 인쇄 · 분석 설정 · 파일 관리</span></summary><div class="settings-body">  <div class="tools-bar">
+    <div class="tool-group grow">
+      <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
+      <div class="tool-row">
+        <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="100" disabled>
+        <button class="reset-btn" id="playBtn">▶ 재생</button>
+      </div>
+    </div>
+    <div class="tool-group">
+      <div class="tool-label">&nbsp;</div>
+      <button class="run-btn export-btn" id="exportBtn">인쇄 / PDF</button>
+    </div>
+  </div>
+
+    <div class="tool-group" id="icingThresholds">
       <div class="tool-label">임계값 설정 (결빙)</div>
       <div class="tool-row">
         <label>위험 노면온도 ≤ <input type="number" id="thDangerTemp" class="th-input" step="0.1" value="-1">℃</label>
@@ -1163,7 +1162,6 @@ runBtn.addEventListener('click', () => {
     btn.classList.remove('active');
     btn.setAttribute('aria-pressed', 'false');
   });
-  document.getElementById('observationDate').disabled = true;
   document.getElementById('archiveNote').textContent = '추가한 관측파일 표시 중 · 실제 관측시각을 확인하세요.';
   const loadMsg = hadError
     ? `일부 파일에서 유효한 데이터를 찾지 못했습니다. (이동경로 ${routes.length}개, 총 ${totalPts.toLocaleString()}건 반영)`
@@ -1187,12 +1185,10 @@ const ROAD_CASES = {
   '24': { label: '24번국도(담양~신안)', month: '2025-02' }
 };
 let selectedRoad = '27';
-const observationDate = document.getElementById('observationDate');
 
 function showRoadObservations(){
   const road = ROAD_CASES[selectedRoad];
-  const files = BUILTIN_OBSERVATIONS.filter(f => f.date.startsWith(road.month) &&
-    (observationDate.value === 'all' || f.date === observationDate.value));
+  const files = BUILTIN_OBSERVATIONS.filter(f => f.date.startsWith(road.month));
   const routes = [];
   let excluded = 0;
   files.forEach(file => {
@@ -1212,18 +1208,13 @@ function showRoadObservations(){
   applyModeLabels();
   renderStationDashboard(routes, files.map(f => f.name));
   document.getElementById('archiveNote').textContent =
-    `${road.label} · ${observationDate.value === 'all' ? road.month + ' 전체 관측일' : observationDate.value} · 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.`;
+    `${road.label} · ${road.month} 전체 ${files.length}일 통합 · 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.`;
   fileStatusEl.textContent = `내장자료 ${files.length}개 파일 · ${routes.reduce((n,r) => n+r.rows.length,0).toLocaleString()}건 표시` +
     (excluded ? ` · 좌표 또는 필수값이 유효하지 않은 ${excluded}건 제외` : '');
 }
 
 function selectRoad(roadId){
   selectedRoad = roadId;
-  const dates = BUILTIN_OBSERVATIONS.filter(f => f.date.startsWith(ROAD_CASES[roadId].month)).map(f => f.date);
-  observationDate.replaceChildren();
-  [...new Set(dates)].sort().forEach(date => observationDate.add(new Option(date, date)));
-  observationDate.add(new Option('전체 관측일', 'all'));
-  observationDate.disabled = false;
   document.querySelectorAll('.road-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.road === roadId);
     btn.setAttribute('aria-pressed', String(btn.dataset.road === roadId));
@@ -1234,7 +1225,6 @@ document.getElementById('roadMenu').addEventListener('click', e => {
   const btn = e.target.closest('.road-btn');
   if(btn) selectRoad(btn.dataset.road);
 });
-observationDate.addEventListener('change', showRoadObservations);
 selectRoad('27');
 </script>
 </body>
