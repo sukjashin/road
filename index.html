@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-3">
+<link rel="stylesheet" href="dashboard.css?v=20260915-4">
 </head>
 <body>
 <div class="page">
@@ -319,6 +319,7 @@
           <div class="legend-bar" id="legendBar"></div>
           <div class="legend-scale" id="legendScale"><span>-3℃</span><span>1℃</span><span>5℃+</span></div>
           <div class="legend-row"><span class="legend-dot" id="legendDot"></span><span id="legendRiskLabel">결빙 위험구간</span></div>
+          <div class="legend-row"><span class="legend-dot" id="legendCautionDot" style="background:#f0a93e;box-shadow:0 0 0 1px #f0a93e;"></span><span id="legendCautionLabel">결빙 주의구간</span></div>
         </div>
       </div>
     </div>
@@ -326,9 +327,14 @@
 
 
   <section class="headline-metrics" aria-label="핵심 관측 결과">
-    <div class="metric primary"><span class="eyebrow">TEMPERATURE</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
-    <div class="metric"><span class="eyebrow">RISK SECTIONS</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수</span></div>
-    <div class="metric context"><span class="eyebrow">OBSERVATION RECORD</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
+    <div class="metric primary"><span class="eyebrow">온도 지표</span><div id="thMinTempLabel">최저 노면온도</div><strong id="curMinTemp">-</strong><span id="curMinTempSub">노면온도(℃)</span><span id="curMinTempIcon" hidden></span></div>
+    <div class="metric"><span class="eyebrow">위험구간 집계</span><div id="thRiskLabel">결빙 위험구간</div><strong id="curRiskCount">-</strong><span>설정 기준에 해당하는 구간 수 <b id="curCautionCount" class="metric-caution">-</b></span></div>
+    <div class="metric context"><span class="eyebrow">자료 구분</span><div>자료 유형</div><strong>이동관측 <small>기록</small></strong><span>관측 시점의 노면 상태 · 사례 검토용</span></div>
+  </section>
+
+  <section class="card trend-card" aria-label="구간 온도 추이">
+    <div class="card-head"><span class="head-bar"></span><h2>관측 구간 온도 추이</h2><span class="head-meta">위험 · 주의 기준선 포함</span></div>
+    <div id="trendChart" class="trend-chart-wrap"></div>
   </section>
 
   <section class="card coverage-card"><div class="card-head"><span class="head-bar"></span><h2>선택 자료의 수집 정보</h2><span class="head-meta">전체 선택자료 기준</span></div><table class="status-table"><tbody><tr id="coverageRow"></tr></tbody></table></section>
@@ -419,14 +425,19 @@ function tempToColor(t){ return colorFromStops(t, ICE_STOPS); }
 // 현재 모드(결빙/폭염)에 맞는 색상 스케일 적용
 function colorFor(t){ return colorFromStops(t, MODE === 'heat' ? HEAT_STOPS : ICE_STOPS); }
 function riskColor(){ return MODE === 'heat' ? '#e6484f' : '#2563eb'; }
+const CAUTION_COLOR = '#f0a93e';
+// 클러스터/구간의 심각도에 맞는 색상 (위험: 모드별 강조색, 주의: 공통 주의색)
+function severityColor(sev){ return sev === 'danger' ? riskColor() : CAUTION_COLOR; }
 function rgb(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
 
-/* ---------- 위험구간 클러스터 ---------- */
+/* ---------- 위험/주의구간 클러스터 ---------- */
+// 위험(danger) 또는 주의(caution) 판정을 받은 연속 관측점을 하나의 구간으로 묶는다.
+// 구간 내 위험 판정이 하나라도 있으면 그 구간 전체를 '위험'으로 표시한다.
 function buildRiskClusters(data){
   const clusters = [];
   let cur = null;
   data.forEach(d => {
-    if(d.r === 'O'){
+    if(d.r === 'danger' || d.r === 'caution'){
       if(cur && isGpsGlitch(cur[cur.length-1], d, haversineKm(
         [cur[cur.length-1].la, cur[cur.length-1].lo], [d.la,d.lo]))){
         clusters.push(cur);
@@ -439,7 +450,10 @@ function buildRiskClusters(data){
     }
   });
   if(cur) clusters.push(cur);
-  return clusters;
+  return clusters.map(pts => ({
+    points: pts,
+    severity: pts.some(p => p.r === 'danger') ? 'danger' : 'caution'
+  }));
 }
 
 function buildSparkline(temps, w, h){
@@ -457,6 +471,62 @@ function buildSparkline(temps, w, h){
     <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
       <polygon points="${areaPts}" fill="${riskColor()}22"></polygon>
       <polyline points="${pts.join(' ')}" fill="none" stroke="${riskColor()}" stroke-width="2"></polyline>
+    </svg>
+  `;
+}
+
+// 관측 구간 전체의 온도(결빙: 노면온도 / 폭염: 기온) 추이를 위험·주의 기준선과 함께 보여주는 큰 차트
+function buildTrendChart(allPts){
+  if(!allPts || allPts.length < 2) return '<div class="trend-empty">추이를 표시할 관측점이 부족합니다.</div>';
+
+  const W = 900, H = 190, padL = 40, padR = 16, padT = 14, padB = 22;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  // 점이 너무 많으면 화면에 맞춰 다운샘플링
+  const MAX_PTS = 260;
+  const step = Math.max(1, Math.ceil(allPts.length / MAX_PTS));
+  const sampled = allPts.filter((_, i) => i % step === 0);
+
+  const dangerT = MODE === 'heat' ? HEAT_DANGER_TEMP : DANGER_ROAD_TEMP;
+  const cautionT = MODE === 'heat' ? HEAT_CAUTION_TEMP : CAUTION_ROAD_TEMP;
+  const temps = sampled.map(p => p.te);
+  let min = Math.min(...temps, dangerT, cautionT);
+  let max = Math.max(...temps, dangerT, cautionT);
+  if(min === max){ min -= 1; max += 1; }
+  const pad = (max - min) * 0.1;
+  min -= pad; max += pad;
+
+  const x = i => padL + (sampled.length > 1 ? (i / (sampled.length - 1)) * plotW : 0);
+  const y = t => padT + plotH - ((t - min) / (max - min)) * plotH;
+
+  const linePts = sampled.map((p,i) => `${x(i).toFixed(1)},${y(p.te).toFixed(1)}`).join(' ');
+  const areaPts = `${x(0).toFixed(1)},${(padT+plotH).toFixed(1)} ${linePts} ${x(sampled.length-1).toFixed(1)},${(padT+plotH).toFixed(1)}`;
+
+  // 위험/주의 판정 색상별로 점을 찍어 구간이 어디서 발생했는지 바로 보이게 함
+  const dots = sampled.map((p,i) => {
+    if(p.r === 'normal') return '';
+    return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.te).toFixed(1)}" r="3" fill="${severityColor(p.r)}"></circle>`;
+  }).join('');
+
+  const dangerY = y(dangerT), cautionY = y(cautionT);
+  const dangerLabel = MODE === 'heat' ? `위험 ${dangerT}℃+` : `위험 ${dangerT}℃-`;
+  const cautionLabel = MODE === 'heat' ? `주의 ${cautionT}℃+` : `주의 ${cautionT}℃-`;
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="trend-svg">
+      <line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="#dbe1ec" stroke-width="1"></line>
+      <line x1="${padL}" y1="${padT+plotH}" x2="${W-padR}" y2="${padT+plotH}" stroke="#dbe1ec" stroke-width="1"></line>
+      <line x1="${padL}" y1="${dangerY.toFixed(1)}" x2="${W-padR}" y2="${dangerY.toFixed(1)}" stroke="${riskColor()}" stroke-width="1.2" stroke-dasharray="4,4"></line>
+      <text x="${W-padR}" y="${(dangerY-4).toFixed(1)}" text-anchor="end" class="trend-th-label" fill="${riskColor()}">${dangerLabel}</text>
+      <line x1="${padL}" y1="${cautionY.toFixed(1)}" x2="${W-padR}" y2="${cautionY.toFixed(1)}" stroke="${CAUTION_COLOR}" stroke-width="1.2" stroke-dasharray="4,4"></line>
+      <text x="${W-padR}" y="${(cautionY-4).toFixed(1)}" text-anchor="end" class="trend-th-label" fill="${CAUTION_COLOR}">${cautionLabel}</text>
+      <polygon points="${areaPts}" fill="#2f6fed14"></polygon>
+      <polyline points="${linePts}" fill="none" stroke="#33456b" stroke-width="1.6"></polyline>
+      ${dots}
+      <text x="${padL}" y="${(padT+plotH+16).toFixed(1)}" class="trend-axis-label">${sampled[0].t}</text>
+      <text x="${W-padR}" y="${(padT+plotH+16).toFixed(1)}" text-anchor="end" class="trend-axis-label">${sampled[sampled.length-1].t}</text>
+      <text x="${padL-6}" y="${(y(max-pad)+4).toFixed(1)}" text-anchor="end" class="trend-axis-label">${max.toFixed(1)}℃</text>
+      <text x="${padL-6}" y="${(y(min+pad)+4).toFixed(1)}" text-anchor="end" class="trend-axis-label">${min.toFixed(1)}℃</text>
     </svg>
   `;
 }
@@ -628,15 +698,17 @@ function toRiskPoints(rows){
     if(MODE === 'heat'){
       // 폭염 모드: 기온을 기준으로 판정 (기온이 없는 구형 데이터는 노면온도로 대체)
       const heatTemp = isFinite(row.airTemp) ? row.airTemp : row.roadTemp;
+      const r = heatTemp >= HEAT_DANGER_TEMP ? 'danger' : (heatTemp >= HEAT_CAUTION_TEMP ? 'caution' : 'normal');
       return {
-        t: row.time, la: row.lat, lo: row.lon, te: heatTemp,
-        r: (heatTemp >= HEAT_DANGER_TEMP) ? 'O' : 'X',
+        t: row.time, la: row.lat, lo: row.lon, te: heatTemp, r,
         friction: row.friction, airTemp: row.airTemp, roadTemp: row.roadTemp, roadState: row.roadState
       };
     }
+    const isDangerPt = row.roadTemp <= DANGER_ROAD_TEMP || (isFinite(row.friction) && row.friction <= DANGER_FRICTION);
+    const isCautionPt = row.roadTemp <= CAUTION_ROAD_TEMP;
+    const r = isDangerPt ? 'danger' : (isCautionPt ? 'caution' : 'normal');
     return {
-      t: row.time, la: row.lat, lo: row.lon, te: row.roadTemp,
-      r: (row.roadTemp <= DANGER_ROAD_TEMP || (isFinite(row.friction) && row.friction <= DANGER_FRICTION)) ? 'O' : 'X',
+      t: row.time, la: row.lat, lo: row.lon, te: row.roadTemp, r,
       friction: row.friction, airTemp: row.airTemp, roadTemp: row.roadTemp, roadState: row.roadState
     };
   });
@@ -678,11 +750,11 @@ function drawRoute(points, locationLabel){
     if(isGpsGlitch(a, b, d)) continue; // GPS 오류로 판단되는 구간은 선을 잇지 않음
 
     const avgTemp = (a.te + b.te) / 2;
-    const isDanger = (a.r === 'O' || b.r === 'O');
+    const isRisk = (a.r !== 'normal' || b.r !== 'normal');
     const seg = L.polyline([[a.la,a.lo],[b.la,b.lo]], {
       color: colorFor(avgTemp),
-      weight: isDanger ? 7 : 5,
-      opacity: isDanger ? 1 : 0.9,
+      weight: isRisk ? 7 : 5,
+      opacity: isRisk ? 1 : 0.9,
       lineCap: 'round'
     }).addTo(gradientLayer);
 
@@ -713,7 +785,7 @@ function drawRoute(points, locationLabel){
   }
 
   const clusters = buildRiskClusters(points);
-  clusters.forEach(cluster => {
+  clusters.forEach(({ points: cluster, severity }) => {
     const temps = cluster.map(d => d.te);
     const avgTemp = temps.reduce((s,v)=>s+v,0) / temps.length;
     const minTemp = Math.min(...temps);
@@ -722,25 +794,27 @@ function drawRoute(points, locationLabel){
     const minFriction = frictions.length ? Math.min(...frictions) : null;
     const startT = cluster[0].t, endT = cluster[cluster.length-1].t;
     const mid = cluster[Math.floor(cluster.length/2)];
+    const markerColor = severityColor(severity);
+    const levelLabel = severity === 'danger' ? '위험' : '주의';
 
     let title, statLine, reason;
     if(MODE === 'heat'){
-      title = '🔥 폭염 위험구간';
+      title = `${severity === 'danger' ? '🔥' : '🟠'} 폭염 ${levelLabel}구간`;
       reason = '고온';
       statLine = `평균 기온: ${avgTemp.toFixed(1)}℃ · 최고 ${maxTemp.toFixed(1)}℃`;
     } else {
-      title = '⚠ 결빙 위험구간';
+      title = `${severity === 'danger' ? '⚠' : '🟠'} 결빙 ${levelLabel}구간`;
       reason = minTemp <= DANGER_ROAD_TEMP
         ? '노면온도 저하'
-        : (minFriction !== null && minFriction <= DANGER_FRICTION ? '마찰계수 저하(미끄러움)' : '');
+        : (minFriction !== null && minFriction <= DANGER_FRICTION ? '마찰계수 저하(미끄러움)' : '노면온도 저하 주의');
       statLine = `평균 노면온도: ${avgTemp.toFixed(1)}℃ · 최저 ${minTemp.toFixed(1)}℃`;
     }
 
     const segLatLngs = cluster.map(d => [d.la, d.lo]);
-    L.polyline(segLatLngs, { color:riskColor(), weight:7, opacity:1, lineCap:'round' }).addTo(routeLayer);
+    L.polyline(segLatLngs, { color:markerColor, weight:7, opacity:1, lineCap:'round' }).addTo(routeLayer);
 
     const marker = L.circleMarker([mid.la, mid.lo], {
-      radius: 7, color: '#ffffff', weight: 2, fillColor: riskColor(), fillOpacity: 1
+      radius: severity === 'danger' ? 7 : 6, color: '#ffffff', weight: 2, fillColor: markerColor, fillOpacity: 1
     }).addTo(routeLayer);
 
     const sparkSvg = buildSparkline(temps, 220, 60);
@@ -770,7 +844,7 @@ function drawRoute(points, locationLabel){
       }).setView([mid.la, mid.lo], 17);
       L.tileLayer(SATELLITE_TILE_URL, { maxZoom: 19 }).addTo(satMap);
       L.circleMarker([mid.la, mid.lo], {
-        radius: 6, color: '#fff', weight: 2, fillColor: riskColor(), fillOpacity: 1
+        radius: 6, color: '#fff', weight: 2, fillColor: markerColor, fillOpacity: 1
       }).addTo(satMap);
       setTimeout(() => satMap && satMap.invalidateSize(), 50);
     });
@@ -843,11 +917,14 @@ function drawFromRoutes(routes, fileNames){
   if(allPts.length === 0){
     document.getElementById('curMinTemp').textContent = '-';
     document.getElementById('curRiskCount').textContent = '0';
+    document.getElementById('curCautionCount').textContent = '-';
     document.getElementById('curAvgTemp').textContent = '-';
     document.getElementById('curTotal').textContent = '0개';
     document.getElementById('curDistance').textContent = '0.0km';
     document.getElementById('updateTime').textContent = '관측시각 -';
     document.getElementById('statusRow').innerHTML = '';
+    const trendEl0 = document.getElementById('trendChart');
+    if(trendEl0) trendEl0.innerHTML = '';
     return;
   }
 
@@ -862,13 +939,19 @@ function drawFromRoutes(routes, fileNames){
   const avgTemp = tempSum / allPts.length;
   // 결빙 모드는 "가장 추운 값"이, 폭염 모드는 "가장 더운 값"이 핵심 지표
   const keyTemp = MODE === 'heat' ? tempMax : tempMin;
+  const dangerClusters = allClusters.filter(c => c.severity === 'danger');
+  const cautionClusters = allClusters.filter(c => c.severity === 'caution');
 
   document.getElementById('curMinTemp').textContent = keyTemp.toFixed(1) + '℃';
-  document.getElementById('curRiskCount').textContent = allClusters.length;
+  document.getElementById('curRiskCount').textContent = dangerClusters.length;
+  document.getElementById('curCautionCount').textContent = cautionClusters.length ? `주의구간 별도 ${cautionClusters.length}곳` : '주의구간 없음';
   document.getElementById('curAvgTemp').textContent = avgTemp.toFixed(1) + '℃';
   document.getElementById('curTotal').textContent = allPts.length.toLocaleString() + '개';
   document.getElementById('curDistance').textContent = totalDistanceKm.toFixed(1) + 'km';
   document.getElementById('updateTime').textContent = `관측 ${minTime} ~ ${maxTime} (${allPts.length.toLocaleString()}건)`;
+
+  const trendEl = document.getElementById('trendChart');
+  if(trendEl) trendEl.innerHTML = buildTrendChart(allPts);
 
   const locations = Array.from(new Set(routes.map(r => (r.location || '').trim()).filter(Boolean)));
   document.getElementById('obsMeta').textContent = locations.length
@@ -890,14 +973,18 @@ function drawFromRoutes(routes, fileNames){
     keyDot = keyTemp <= DANGER_ROAD_TEMP ? 'risk' : (keyTemp <= CAUTION_ROAD_TEMP ? 'orange' : 'green');
     keyText = keyTemp <= DANGER_ROAD_TEMP ? '위험' : (keyTemp <= CAUTION_ROAD_TEMP ? '주의' : '정상');
   }
-  const riskDotS = allClusters.length > 0 ? 'risk' : 'green';
-  const riskTextS = allClusters.length > 0 ? '기준 해당' : '기준 미해당';
+  const riskDotS = dangerClusters.length > 0 ? 'risk' : 'green';
+  const riskTextS = dangerClusters.length > 0 ? '기준 해당' : '기준 미해당';
+  const cautionDotS = cautionClusters.length > 0 ? 'orange' : 'green';
+  const cautionTextS = cautionClusters.length > 0 ? '기준 해당' : '기준 미해당';
   const tempColLabel = MODE === 'heat' ? '기온(℃)' : '노면온도(℃)';
   const riskColLabel = MODE === 'heat' ? '폭염위험구간' : '결빙위험구간';
+  const cautionColLabel = MODE === 'heat' ? '폭염주의구간' : '결빙주의구간';
 
   document.getElementById('statusRow').innerHTML =
     statusColumn(tempColLabel, keyDot, keyText, keyTemp.toFixed(1)+'℃') +
-    statusColumn(riskColLabel, riskDotS, riskTextS, allClusters.length+'곳');
+    statusColumn(riskColLabel, riskDotS, riskTextS, dangerClusters.length+'곳') +
+    statusColumn(cautionColLabel, cautionDotS, cautionTextS, cautionClusters.length+'곳');
 }
 
 // 임계값/시간 슬라이더가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
@@ -1018,6 +1105,7 @@ function applyModeLabels(){
   document.getElementById('curMinTempSub').textContent = heat ? '기온(℃)' : '노면온도(℃)';
   document.getElementById('legendTitle').textContent = heat ? '기온' : '노면온도';
   document.getElementById('legendRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
+  document.getElementById('legendCautionLabel').textContent = heat ? '폭염 주의구간' : '결빙 주의구간';
   const scaleStops = heat ? HEAT_STOPS : ICE_STOPS;
   const scaleColors = scaleStops.map(s => rgb(s[1])).join(',');
   document.getElementById('legendBar').style.background = `linear-gradient(to right, ${scaleColors})`;

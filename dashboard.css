@@ -25,3 +25,17 @@ body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 @media(max-width:1000px){.page{padding:20px}.dashboard{grid-template-columns:minmax(0,1fr) 260px}.metric{padding:18px}.brand-title{font-size:24px}}
 @media(max-width:760px){.page{padding:16px 12px}.headline-metrics{gap:8px;grid-template-columns:1fr 1fr}.metric.context{display:none}.metric strong{font-size:30px}.dashboard{grid-template-columns:1fr}.right-card{grid-column:1;grid-row:1}.left-card{grid-column:1;grid-row:2}.road-buttons{flex-basis:100%;flex-direction:column}.road-btn{text-align:left}.brand-title{font-size:22px}.update-time{padding:0}.card{padding:15px}.coverage-card table,.coverage-card tbody{display:block}.coverage-card tr{display:grid;grid-template-columns:1fr 1fr}.coverage-card td{width:auto!important}.settings summary span{display:block;margin:5px 0 0}.head-meta{max-width:48%;text-align:right}.left-card>.head-meta{max-width:100%;text-align:left}.page-footer{gap:15px}#mapWrap,#map{min-height:420px}}
 @media print{.settings,.tools-bar,.mode-toggle{display:none!important}.page{padding:0}.headline-metrics,.dashboard,.coverage-card{break-inside:avoid}.dashboard{grid-template-columns:1fr 260px}.metric{padding:12px}.page-footer{padding-top:10px}}
+
+/* 위험/주의 2단계 판정을 위한 보강 스타일 */
+.metric-caution{display:block;margin-top:6px;font-size:11px;font-weight:700;color:var(--muted)}
+.map-legend .legend-row+.legend-row{margin-top:3px}
+
+/* 관측 구간 온도 추이 차트 */
+.trend-card{margin-top:20px}
+.trend-chart-wrap{width:100%}
+.trend-svg{width:100%;height:190px;display:block}
+.trend-axis-label{font-size:10px;fill:var(--muted)}
+.trend-th-label{font-size:10px;font-weight:700}
+.trend-empty{padding:30px 0;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:760px){.trend-svg{height:150px}}
+@media print{.trend-card{break-inside:avoid}}
