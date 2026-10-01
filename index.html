@@ -71,6 +71,20 @@
   .road-btn{ font-family:inherit; font-size:14px; font-weight:700; padding:12px 16px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--navy); cursor:pointer; }
   .road-btn.active{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
   .archive-note{ font-size:12px; color:var(--navy-soft); line-height:1.6; }
+  .route-visibility{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:18px; }
+  .rv-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+  .rv-actions{ display:flex; gap:10px; }
+  .rv-link{ font-family:inherit; font-size:12px; font-weight:700; color:var(--accent); background:none; border:none; cursor:pointer; padding:2px 4px; }
+  .rv-link:hover{ text-decoration:underline; }
+  .rv-list{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+  .rv-item{
+    display:flex; align-items:center; gap:6px;
+    background:#f3f6fb; color:var(--navy-soft);
+    font-size:11.5px; font-weight:600;
+    padding:6px 10px; border-radius:20px; cursor:pointer; user-select:none;
+  }
+  .rv-item.off{ opacity:0.45; }
+  .rv-item input{ cursor:pointer; }
   #observationDate{ font:inherit; padding:5px 8px; margin-left:6px; border:1px solid var(--border); border-radius:6px; }
 
   /* 파일 추가/실행 메뉴 */
@@ -289,6 +303,17 @@
       <button type="button" class="road-btn" data-road="24">24번국도(담양~신안) · 2025년 2월</button>
     </div>
     <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
+  </section>
+
+  <section class="route-visibility" id="routeVisibilitySection" hidden aria-label="표시할 관측일 선택">
+    <div class="rv-head">
+      <strong class="section-label">표시할 관측일 선택</strong>
+      <span class="rv-actions">
+        <button type="button" class="rv-link" id="rvShowAll">전체 보기</button>
+        <button type="button" class="rv-link" id="rvHideAll">전체 숨기기</button>
+      </span>
+    </div>
+    <div class="rv-list" id="routeVisibilityList"></div>
   </section>
 
   <section class="card trend-card" aria-label="구간 온도 추이">
@@ -1360,9 +1385,9 @@ function drawFromRoutes(routes, fileNames){
     statusColumn(cautionColLabel, cautionDotS, cautionTextS, cautionClusters.length+'곳');
 }
 
-// 임계값/시간 슬라이더/시간대 필터가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
+// 임계값/시간 슬라이더/시간대 필터/관측일 표시 체크박스가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
 function redraw(){
-  let routesToDraw = currentRoutes;
+  let routesToDraw = currentRoutes.filter(r => r.visible !== false);
   if(sliderCutoffMs !== null && currentMaxMs !== null && sliderCutoffMs < currentMaxMs){
     routesToDraw = routesToDraw.map(r => ({
       ...r,
@@ -1384,9 +1409,11 @@ function redraw(){
 function renderStationDashboard(routes, fileNames){
   if(playTimer){ clearInterval(playTimer); playTimer = null; }
   playBtn.textContent = '▶ 재생';
+  routes.forEach(r => { r.visible = true; }); // 관측일 표시 체크박스 기본값: 전부 켜짐
   currentRoutes = routes;
   currentFileNames = fileNames;
   sliderCutoffMs = null;
+  renderRouteVisibilityPanel();
 
   const { totalPts, minMs, maxMs, medianMs } = computeCoverage(routes);
   currentMinMs = minMs;
@@ -1411,6 +1438,52 @@ function renderStationDashboard(routes, fileNames){
 
   redraw();
 }
+
+/* ==================================================================
+   관측일 표시 체크박스 - 여러 날짜/파일을 한꺼번에 올렸을 때 원하는 것만 골라보기
+   ================================================================== */
+const routeVisibilitySection = document.getElementById('routeVisibilitySection');
+const routeVisibilityList = document.getElementById('routeVisibilityList');
+
+function renderRouteVisibilityPanel(){
+  if(currentRoutes.length <= 1){
+    routeVisibilitySection.hidden = true;
+    routeVisibilityList.innerHTML = '';
+    return;
+  }
+  routeVisibilitySection.hidden = false;
+  routeVisibilityList.innerHTML = currentRoutes.map((r, i) => {
+    const dateLabel = (r.rows[0] && r.rows[0].time) ? r.rows[0].time.slice(0, 10) : (r.fileName || `경로 ${i+1}`);
+    const labelText = `${dateLabel}${r.location ? ' · ' + r.location : ''} (${r.rows.length.toLocaleString()}건)`;
+    const checked = r.visible !== false;
+    return `
+      <label class="rv-item${checked ? '' : ' off'}">
+        <input type="checkbox" data-rv-idx="${i}" ${checked ? 'checked' : ''}>
+        <span>${escapeAttr(labelText)}</span>
+      </label>
+    `;
+  }).join('');
+}
+
+routeVisibilityList.addEventListener('change', (e) => {
+  const idxAttr = e.target.getAttribute('data-rv-idx');
+  if(idxAttr === null) return;
+  const i = Number(idxAttr);
+  currentRoutes[i].visible = e.target.checked;
+  e.target.closest('.rv-item').classList.toggle('off', !e.target.checked);
+  redraw();
+});
+
+document.getElementById('rvShowAll').addEventListener('click', () => {
+  currentRoutes.forEach(r => { r.visible = true; });
+  renderRouteVisibilityPanel();
+  redraw();
+});
+document.getElementById('rvHideAll').addEventListener('click', () => {
+  currentRoutes.forEach(r => { r.visible = false; });
+  renderRouteVisibilityPanel();
+  redraw();
+});
 
 /* ==================================================================
    임계값 설정 패널
