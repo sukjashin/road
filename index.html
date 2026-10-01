@@ -374,9 +374,11 @@
     <div class="file-controls">
       <label class="file-btn" for="fileInput">+ 관측파일 추가</label>
       <input type="file" id="fileInput" accept=".txt,.csv" multiple style="display:none" />
+      <label class="file-btn" for="folderInput">+ 폴더째 추가</label>
+      <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
       <button class="run-btn" id="runBtn" disabled>실행</button>
       <button class="reset-btn" id="resetBtn">초기화(내장자료)</button>
-      <span class="file-hint">지점_real / 지점_aws 형식의 txt 또는 csv 관측파일을 추가한 뒤 실행을 누르세요</span>
+      <span class="file-hint">지점_real / 지점_aws 형식의 txt 또는 csv 관측파일을 추가한 뒤 실행을 누르세요 · 도로별로 폴더에 모아뒀다면 "폴더째 추가"로 한 번에 불러올 수 있습니다(폴더명이 지점명으로 자동 입력됨)</span>
     </div>
     <div class="file-chips" id="fileChips"></div>
     <div class="file-status" id="fileStatus"></div>
@@ -706,6 +708,7 @@ let pendingFiles = [];  // [{id, name, text}]
 let fileSeq = 0;
 
 const fileInput = document.getElementById('fileInput');
+const folderInput = document.getElementById('folderInput');
 const runBtn = document.getElementById('runBtn');
 const resetBtn = document.getElementById('resetBtn');
 const fileChipsEl = document.getElementById('fileChips');
@@ -753,6 +756,20 @@ fileInput.addEventListener('change', async (e) => {
   fileInput.value = '';
   renderFileChips();
   fileStatusEl.textContent = pendingFiles.length ? '파일이 추가되었습니다. 실행 버튼을 눌러 반영하세요.' : '';
+});
+
+// 폴더째 추가: 도로별로 폴더에 모아둔 txt/csv를 한 번에 불러오고, 최상위 폴더명을 지점명으로 자동 입력
+folderInput.addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []).filter(f => /\.(txt|csv)$/i.test(f.name));
+  for(const f of files){
+    const text = await f.text();
+    const relPath = f.webkitRelativePath || '';
+    const topFolder = relPath.includes('/') ? relPath.split('/')[0] : '';
+    pendingFiles.push({ id: ++fileSeq, name: f.name, text, location: topFolder });
+  }
+  folderInput.value = '';
+  renderFileChips();
+  fileStatusEl.textContent = pendingFiles.length ? `폴더에서 ${files.length}개 파일이 추가되었습니다. 실행 버튼을 눌러 반영하세요.` : '';
 });
 
 resetBtn.addEventListener('click', () => { location.reload(); });
