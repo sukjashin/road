@@ -1152,6 +1152,11 @@ function drawEdges(edges, styleForEdge){
     };
 
     if(d * 1000 > MAX_EDGE_LINE_METERS){
+      // 실제 도로 모양이라고 확정할 수 없는 구간이지만, 점만 찍으면 확대했을 때 구간을 놓치기 쉬우므로
+      // 가늘고 흐린 점선으로만 이어서 "대략 이쪽으로 이어진다"는 추적 단서는 남긴다
+      L.polyline([[a.la,a.lo],[b.la,b.lo]], {
+        color: style.color, weight: 1.5, opacity: 0.4, dashArray: '2,7', lineCap: 'round'
+      }).addTo(gradientLayer);
       [[a.la,a.lo], [b.la,b.lo]].forEach(ll => {
         L.circleMarker(ll, { radius: 4, color: style.color, weight: 1, fillColor: style.color, fillOpacity: 0.9 })
           .addTo(gradientLayer)
@@ -1195,6 +1200,7 @@ function drawClusters(pickedClusters){
     for(let ci=0; ci<cluster.length-1; ci++){
       const p1 = [cluster[ci].la, cluster[ci].lo], p2 = [cluster[ci+1].la, cluster[ci+1].lo];
       if(haversineKm(p1, p2) * 1000 > MAX_EDGE_LINE_METERS){
+        L.polyline([p1, p2], { color: markerColor, weight: 1.5, opacity: 0.4, dashArray: '2,7', lineCap: 'round' }).addTo(routeLayer);
         [p1, p2].forEach(ll => {
           L.circleMarker(ll, { radius: 3, color: markerColor, weight: 1, fillColor: markerColor, fillOpacity: 0.9 }).addTo(routeLayer);
         });
