@@ -1,0 +1,83 @@
+{
+  "checks": {
+    "syntax": "pass",
+    "coordinatesAgainstZeroPaddedDecimalReference": "9/9",
+    "riskClustersExcludeGpsJumps": "pass",
+    "syntheticJumpSplit": "pass",
+    "browser": "not tested"
+  },
+  "files": [
+    {
+      "date": "2025-01-03",
+      "valid": 339,
+      "correctedCoordinateRows": 54,
+      "distanceKm": 286.13,
+      "maxAcceptedStepKm": 2.74,
+      "rejectedSegments": 6
+    },
+    {
+      "date": "2025-01-14",
+      "valid": 177,
+      "correctedCoordinateRows": 21,
+      "distanceKm": 125.77,
+      "maxAcceptedStepKm": 2.31,
+      "rejectedSegments": 2
+    },
+    {
+      "date": "2025-01-15",
+      "valid": 245,
+      "correctedCoordinateRows": 19,
+      "distanceKm": 145.1,
+      "maxAcceptedStepKm": 1.77,
+      "rejectedSegments": 2
+    },
+    {
+      "date": "2025-01-22",
+      "valid": 135,
+      "correctedCoordinateRows": 14,
+      "distanceKm": 148.94,
+      "maxAcceptedStepKm": 26.03,
+      "rejectedSegments": 4
+    },
+    {
+      "date": "2025-01-23",
+      "valid": 126,
+      "correctedCoordinateRows": 22,
+      "distanceKm": 116.38,
+      "maxAcceptedStepKm": 1.94,
+      "rejectedSegments": 0
+    },
+    {
+      "date": "2025-02-17",
+      "valid": 166,
+      "correctedCoordinateRows": 96,
+      "distanceKm": 115.66,
+      "maxAcceptedStepKm": 1.49,
+      "rejectedSegments": 0
+    },
+    {
+      "date": "2025-02-18",
+      "valid": 207,
+      "correctedCoordinateRows": 130,
+      "distanceKm": 121.87,
+      "maxAcceptedStepKm": 1.31,
+      "rejectedSegments": 0
+    },
+    {
+      "date": "2025-02-24",
+      "valid": 139,
+      "correctedCoordinateRows": 79,
+      "distanceKm": 109.85,
+      "maxAcceptedStepKm": 1.54,
+      "rejectedSegments": 0
+    },
+    {
+      "date": "2025-02-27",
+      "valid": 138,
+      "correctedCoordinateRows": 57,
+      "distanceKm": 130.17,
+      "maxAcceptedStepKm": 1.89,
+      "rejectedSegments": 0
+    }
+  ]
+}
