@@ -363,13 +363,20 @@
         <label>위험 기온 ≥ <input type="number" id="thHeatDanger" class="th-input" step="0.5" value="35">℃</label>
       </div>
     </div>
+    <div class="tool-group" id="hourFilterGroup">
+      <div class="tool-label">시간대 필터</div>
+      <div class="tool-row">
+        <label><input type="checkbox" id="hourFilterToggle"> 특정 시간대만 표시(예: 새벽)</label>
+        <label><input type="number" id="hourFilterStart" class="th-input" min="0" max="23" step="1" value="0">시 ~ <input type="number" id="hourFilterEnd" class="th-input" min="0" max="23" step="1" value="6">시</label>
+      </div>
+    </div>
   <div class="file-bar">
     <div class="file-controls">
       <label class="file-btn" for="fileInput">+ 관측파일 추가</label>
-      <input type="file" id="fileInput" accept=".txt" multiple style="display:none" />
+      <input type="file" id="fileInput" accept=".txt,.csv" multiple style="display:none" />
       <button class="run-btn" id="runBtn" disabled>실행</button>
       <button class="reset-btn" id="resetBtn">초기화(내장자료)</button>
-      <span class="file-hint">지점_real / 지점_aws 형식의 txt 관측파일을 추가한 뒤 실행을 누르세요</span>
+      <span class="file-hint">지점_real / 지점_aws 형식의 txt 또는 csv 관측파일을 추가한 뒤 실행을 누르세요</span>
     </div>
     <div class="file-chips" id="fileChips"></div>
     <div class="file-status" id="fileStatus"></div>
@@ -880,6 +887,17 @@ function parseTimeMs(t){
   return new Date(Number(y), Number(mo)-1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
 }
 
+// 관측 시각 문자열에서 시(0~23)만 뽑아낸다 (시간대 필터용)
+function parseRowHour(t){
+  const m = String(t).match(/^\d{4}-\d{2}-\d{2}\s+(\d{1,2}):/);
+  return m ? Number(m[1]) : null;
+}
+// start<=end면 [start,end) 구간, start>end면 자정을 넘는 구간(예: 22시~4시)으로 취급
+function isHourInRange(hour, start, end){
+  if(hour === null) return false;
+  return start <= end ? (hour >= start && hour < end) : (hour >= start || hour < end);
+}
+
 // GPS 튐(순간이동) 판정: 두 지점 사이 내재 속도가 비현실적으로 크면 결측/오류 구간으로 간주
 const MAX_PLAUSIBLE_KMH = 200;
 // 관측 주기(약 1분)보다 훨씬 긴 공백(장비 일시중단 등)은 그 사이 실제 이동 경로를 알 수 없으므로,
@@ -1171,6 +1189,8 @@ let currentRoutes = [];     // 항상 "전체 시간 범위" 원본 rows 유지 
 let currentFileNames = [];
 let currentMinMs = null, currentMaxMs = null;
 let sliderCutoffMs = null;  // null = 전체 구간 표시
+let hourFilterEnabled = false; // true면 아래 시/종료시 사이의 관측만 표시 (예: 새벽 시간대만)
+let hourFilterStartH = 0, hourFilterEndH = 6;
 
 function computeCoverage(routes){
   let totalPts = 0, minMs = null, maxMs = null;
@@ -1300,16 +1320,22 @@ function drawFromRoutes(routes, fileNames){
     statusColumn(cautionColLabel, cautionDotS, cautionTextS, cautionClusters.length+'곳');
 }
 
-// 임계값/시간 슬라이더가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
+// 임계값/시간 슬라이더/시간대 필터가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
 function redraw(){
   let routesToDraw = currentRoutes;
   if(sliderCutoffMs !== null && currentMaxMs !== null && sliderCutoffMs < currentMaxMs){
-    routesToDraw = currentRoutes.map(r => ({
+    routesToDraw = routesToDraw.map(r => ({
       ...r,
       rows: r.rows.filter(row => {
         const ms = parseTimeMs(row.time);
         return isFinite(ms) && ms <= sliderCutoffMs;
       })
+    }));
+  }
+  if(hourFilterEnabled){
+    routesToDraw = routesToDraw.map(r => ({
+      ...r,
+      rows: r.rows.filter(row => isHourInRange(parseRowHour(row.time), hourFilterStartH, hourFilterEndH))
     }));
   }
   drawFromRoutes(routesToDraw, currentFileNames);
@@ -1368,6 +1394,23 @@ const thHeatDanger = document.getElementById('thHeatDanger');
     HEAT_CAUTION_TEMP = parseFloat(thHeatCaution.value);
     HEAT_DANGER_TEMP = parseFloat(thHeatDanger.value);
     redraw();
+  });
+});
+
+const hourFilterToggle = document.getElementById('hourFilterToggle');
+const hourFilterStart = document.getElementById('hourFilterStart');
+const hourFilterEnd = document.getElementById('hourFilterEnd');
+hourFilterToggle.addEventListener('change', () => {
+  hourFilterEnabled = hourFilterToggle.checked;
+  redraw();
+});
+[hourFilterStart, hourFilterEnd].forEach(el => {
+  el.addEventListener('change', () => {
+    hourFilterStartH = Math.min(23, Math.max(0, Math.round(Number(hourFilterStart.value))));
+    hourFilterEndH = Math.min(23, Math.max(0, Math.round(Number(hourFilterEnd.value))));
+    hourFilterStart.value = String(hourFilterStartH);
+    hourFilterEnd.value = String(hourFilterEndH);
+    if(hourFilterEnabled) redraw();
   });
 });
 
