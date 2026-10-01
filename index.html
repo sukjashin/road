@@ -262,7 +262,7 @@
     .right-card{ min-height:420px; }
   }
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20260915-11">
+<link rel="stylesheet" href="dashboard.css?v=20260915-13">
 </head>
 <body>
 <div class="page">
@@ -828,6 +828,18 @@ function haversineKm(a, b){
   return 2*R*Math.asin(Math.sqrt(h));
 }
 
+// 같은 도로를 왕복하거나 여러 날 반복 관측하면 사실상 같은 위치가 여러 번 찍힌다.
+// 위경도를 일정 크기(cellMeters)의 격자로 묶어, "거의 같은 지점"을 하나의 칸으로 취급하기 위한 키.
+function cellKey(lat, lon, cellMeters){
+  const latDeg = cellMeters / 111320;
+  const lonDeg = cellMeters / (111320 * Math.max(0.2, Math.cos(lat * Math.PI/180)));
+  return Math.round(lat / latDeg) + '_' + Math.round(lon / lonDeg);
+}
+// 두 지점을 잇는 구간(왕복 시 방향이 반대여도 같은 구간으로 인식)의 격자 키
+function edgeKey(a, b, cellMeters){
+  return [cellKey(a[0], a[1], cellMeters), cellKey(b[0], b[1], cellMeters)].sort().join('|');
+}
+
 // "YYYY-MM-DD H:MM[:SS]" 형식(데모/실측 공통, 시각 0패딩 없어도 허용)을 안전하게 ms로 변환
 function parseTimeMs(t){
   const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
@@ -880,18 +892,67 @@ function repairIntegerCarry(rows){
   return rows;
 }
 
-// 한 이동경로(파일 내 지점 ID)를 그라데이션 선 + 위험구간 클러스터로 그림
-function drawRoute(points, locationLabel){
-  const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
-  let distanceKm = 0;
-  const validLatLngs = [];
+// 한 이동경로(파일 내 지점 ID)를 그라데이션 선 + 위험구간 클러스터 후보로 모음
+// 왕복/재방문으로 같은 구간이 겹칠 때 하나로만 그리기 위한 격자 크기(약 40m: 차로 폭 + GPS 오차 흡수)
+const ROUTE_DEDUP_METERS = 40;
+// 위험/주의구간 마커는 점 여러 개의 평균 위치라 조금 더 넉넉하게(약 70m) 묶는다
+const CLUSTER_DEDUP_METERS = 70;
+
+// 같은 구간/구역을 여러 번 지났을 때 어느 쪽이 더 위험한지 비교:
+// 결빙 모드는 온도가 낮을수록, 폭염 모드는 높을수록 더 위험하다고 본다
+function isWorseTemp(candidateTemp, currentTemp){
+  return MODE === 'heat' ? candidateTemp > currentTemp : candidateTemp < currentTemp;
+}
+const CLUSTER_SEVERITY_RANK = { normal: 0, caution: 1, danger: 2 };
+// 클러스터는 심각도(위험 > 주의)를 먼저 비교하고, 같은 등급이면 더 극단적인 온도를 대표로 남긴다
+function isWorseCluster(candidate, current){
+  const rankDiff = CLUSTER_SEVERITY_RANK[candidate.severity] - CLUSTER_SEVERITY_RANK[current.severity];
+  if(rankDiff !== 0) return rankDiff > 0;
+  return isWorseTemp(candidate.avgTemp, current.avgTemp);
+}
+
+// 한 이동경로(파일 내 지점 ID)에서 구간/클러스터 후보를 모아 공유 Map에 반영.
+// 같은 칸(격자)에 이미 후보가 있으면 "더 위험한(결빙이 심한)" 쪽만 남긴다 — 왕복 시 두 줄이 아니라 대표값 하나로 그리기 위함
+function collectRouteCandidates(points, locationLabel, edgeBest, clusterBest){
   for(let i=0;i<points.length-1;i++){
     const a = points[i], b = points[i+1];
     const d = haversineKm([a.la,a.lo], [b.la,b.lo]);
     if(isGpsGlitch(a, b, d)) continue; // GPS 오류로 판단되는 구간은 선을 잇지 않음
 
+    const eKey = edgeKey([a.la,a.lo], [b.la,b.lo], ROUTE_DEDUP_METERS);
     const avgTemp = (a.te + b.te) / 2;
-    const isRisk = (a.r !== 'normal' || b.r !== 'normal');
+    const existing = edgeBest.get(eKey);
+    if(!existing || isWorseTemp(avgTemp, existing.avgTemp)){
+      edgeBest.set(eKey, { a, b, d, avgTemp, isRisk: (a.r !== 'normal' || b.r !== 'normal'), points, i, locationLabel });
+    }
+  }
+
+  const rawClusters = buildRiskClusters(markGpsOutliers(points));
+  rawClusters.forEach(({ points: cluster, severity }) => {
+    const temps = cluster.map(d => d.te);
+    const avgTemp = temps.reduce((s,v)=>s+v,0) / temps.length;
+    const minTemp = Math.min(...temps);
+    const maxTemp = Math.max(...temps);
+    const frictions = cluster.map(d => d.friction).filter(isFinite);
+    const minFriction = frictions.length ? Math.min(...frictions) : null;
+    const startT = cluster[0].t, endT = cluster[cluster.length-1].t;
+    const mid = cluster[Math.floor(cluster.length/2)];
+
+    const clusterCell = cellKey(mid.la, mid.lo, CLUSTER_DEDUP_METERS);
+    const candidate = { cluster, severity, avgTemp, minTemp, maxTemp, minFriction, startT, endT, mid, locationLabel };
+    const existing = clusterBest.get(clusterCell);
+    if(!existing || isWorseCluster(candidate, existing)){
+      clusterBest.set(clusterCell, candidate);
+    }
+  });
+}
+
+// 대표 구간 후보(edgeBest)만 그라데이션 선으로 그림
+function drawEdges(edgeBest){
+  let distanceKm = 0;
+  const validLatLngs = [];
+  edgeBest.forEach(({ a, b, d, avgTemp, isRisk, points, i, locationLabel }) => {
+    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
     const seg = L.polyline([[a.la,a.lo],[b.la,b.lo]], {
       color: colorFor(avgTemp),
       weight: isRisk ? 7 : 5,
@@ -923,20 +984,18 @@ function drawRoute(points, locationLabel){
 
     distanceKm += d;
     validLatLngs.push([a.la,a.lo], [b.la,b.lo]);
-  }
+  });
+  return { distanceKm, validLatLngs };
+}
 
-  const clusters = buildRiskClusters(markGpsOutliers(points));
-  clusters.forEach(({ points: cluster, severity }) => {
-    const temps = cluster.map(d => d.te);
-    const avgTemp = temps.reduce((s,v)=>s+v,0) / temps.length;
-    const minTemp = Math.min(...temps);
-    const maxTemp = Math.max(...temps);
-    const frictions = cluster.map(d => d.friction).filter(isFinite);
-    const minFriction = frictions.length ? Math.min(...frictions) : null;
-    const startT = cluster[0].t, endT = cluster[cluster.length-1].t;
-    const mid = cluster[Math.floor(cluster.length/2)];
+// 대표 클러스터 후보(clusterBest)만 위험/주의구간 마커로 그림
+function drawClusters(clusterBest){
+  const clusters = [];
+  clusterBest.forEach(({ cluster, severity, avgTemp, minTemp, maxTemp, minFriction, startT, endT, mid, locationLabel }) => {
+    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
     const markerColor = severityColor(severity);
     const levelLabel = severity === 'danger' ? '위험' : '주의';
+    clusters.push({ points: cluster, severity });
 
     let title, statLine, reason;
     if(MODE === 'heat'){
@@ -959,6 +1018,7 @@ function drawRoute(points, locationLabel){
     }).addTo(routeLayer);
     allClusterMarkers.push({ startMs: parseTimeMs(startT), endMs: parseTimeMs(endT), severity, marker });
 
+    const temps = cluster.map(d => d.te);
     const sparkSvg = buildSparkline(temps, 220, 60);
     const satId = `sat-${++satPopupSeq}`;
     marker.bindPopup(`
@@ -994,8 +1054,7 @@ function drawRoute(points, locationLabel){
       if(satMap){ satMap.remove(); satMap = null; }
     });
   });
-
-  return { clusters, distanceKm, validLatLngs };
+  return clusters;
 }
 
 /* ==================================================================
@@ -1039,18 +1098,19 @@ function drawFromRoutes(routes, fileNames){
   allClusterMarkers = [];
 
   let allPts = [];
-  let allClusters = [];
-  let totalDistanceKm = 0;
-  let boundsLatLngs = [];
+  // 여러 이동경로(날짜)에 걸쳐 같은 구간/구역을 지날 때마다 후보를 모아뒀다가,
+  // 전부 모은 뒤 가장 위험한(결빙이 심한) 후보 하나만 대표로 그린다
+  const edgeBest = new Map();
+  const clusterBest = new Map();
 
   routes.forEach(route => {
     const points = toRiskPoints(route.rows);
     allPts = allPts.concat(markGpsOutliers(points));
-    const { clusters, distanceKm, validLatLngs } = drawRoute(points, route.location);
-    allClusters = allClusters.concat(clusters);
-    totalDistanceKm += distanceKm;
-    boundsLatLngs = boundsLatLngs.concat(validLatLngs);
+    collectRouteCandidates(points, route.location, edgeBest, clusterBest);
   });
+
+  const { distanceKm: totalDistanceKm, validLatLngs: boundsLatLngs } = drawEdges(edgeBest);
+  const allClusters = drawClusters(clusterBest);
 
   lastBoundsLatLngs = boundsLatLngs;
   if(boundsLatLngs.length){
