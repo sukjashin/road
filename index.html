@@ -1074,19 +1074,22 @@ function contextEdgeStyle(){
   return { color: '#9aa5b1', weight: 2, opacity: 0.55 };
 }
 
-// 구간 후보를 선으로 그림 (styleForEdge로 위험구간/정상구간 스타일을 다르게 적용)
+// 두 관측점이 이 거리보다 멀면 직선으로 잇지 않는다. 관측 간격(수백m~1km+)이 넓은 산길에서는
+// 직선 하나가 실제 커브 도로와 전혀 다른 모양으로 그려져, 같은 도로의 서로 다른 날 관측이
+// 마치 "두 개의 다른 도로"처럼 보이는 문제가 있었다(격자/실거리 중복제거로는 못 고치는 근본 원인).
+// 선 대신 점으로만 표시하면 모르는 구간의 도로 모양을 함부로 추정하지 않아 더 정직하다.
+const MAX_EDGE_LINE_METERS = 300;
+
+// 구간 후보를 선(또는 간격이 너무 멀면 점)으로 그림 (styleForEdge로 위험구간/정상구간 스타일을 다르게 적용)
 function drawEdges(edges, styleForEdge){
   let distanceKm = 0;
   const validLatLngs = [];
   edges.forEach(({ a, b, d, avgTemp, isRisk, points, i, locationLabel }) => {
     const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
-    const seg = L.polyline([[a.la,a.lo],[b.la,b.lo]], {
-      ...styleForEdge({ avgTemp, isRisk }),
-      lineCap: 'round'
-    }).addTo(gradientLayer);
+    const style = styleForEdge({ avgTemp, isRisk });
 
-    // 지점 클릭 시 해당 지점 전후 구간의 관측값 추이 그래프 표시
-    seg.on('click', (e) => {
+    // 지점 클릭 시 해당 지점 전후 구간의 관측값 추이 그래프 표시 (선/점 공용)
+    const showPointPopup = (e) => {
       const lo = Math.max(0, i - 15), hi = Math.min(points.length, i + 16);
       const windowPts = points.slice(lo, hi);
       const wTemps = windowPts.map(p => p.te);
@@ -1105,7 +1108,19 @@ function drawEdges(edges, styleForEdge){
           ${wSpark}
         `)
         .openOn(map);
-    });
+    };
+
+    if(d * 1000 > MAX_EDGE_LINE_METERS){
+      [[a.la,a.lo], [b.la,b.lo]].forEach(ll => {
+        L.circleMarker(ll, { radius: 4, color: style.color, weight: 1, fillColor: style.color, fillOpacity: 0.9 })
+          .addTo(gradientLayer)
+          .on('click', showPointPopup);
+      });
+    } else {
+      L.polyline([[a.la,a.lo],[b.la,b.lo]], { ...style, lineCap: 'round' })
+        .addTo(gradientLayer)
+        .on('click', showPointPopup);
+    }
 
     distanceKm += d;
     validLatLngs.push([a.la,a.lo], [b.la,b.lo]);
@@ -1135,8 +1150,17 @@ function drawClusters(pickedClusters){
       statLine = `평균 노면온도: ${avgTemp.toFixed(1)}℃ · 최저 ${minTemp.toFixed(1)}℃`;
     }
 
-    const segLatLngs = cluster.map(d => [d.la, d.lo]);
-    L.polyline(segLatLngs, { color:markerColor, weight:7, opacity:1, lineCap:'round' }).addTo(routeLayer);
+    // 구간 내 연속 관측점도 간격이 너무 멀면(산길 커브 등) 직선 대신 점으로 표시
+    for(let ci=0; ci<cluster.length-1; ci++){
+      const p1 = [cluster[ci].la, cluster[ci].lo], p2 = [cluster[ci+1].la, cluster[ci+1].lo];
+      if(haversineKm(p1, p2) * 1000 > MAX_EDGE_LINE_METERS){
+        [p1, p2].forEach(ll => {
+          L.circleMarker(ll, { radius: 3, color: markerColor, weight: 1, fillColor: markerColor, fillOpacity: 0.9 }).addTo(routeLayer);
+        });
+      } else {
+        L.polyline([p1, p2], { color:markerColor, weight:7, opacity:1, lineCap:'round' }).addTo(routeLayer);
+      }
+    }
 
     const marker = L.circleMarker([mid.la, mid.lo], {
       radius: severity === 'danger' ? 7 : 6, color: '#ffffff', weight: 2, fillColor: markerColor, fillOpacity: 1
