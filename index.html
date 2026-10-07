@@ -739,14 +739,15 @@ const resetBtn = document.getElementById('resetBtn');
 const fileChipsEl = document.getElementById('fileChips');
 const fileStatusEl = document.getElementById('fileStatus');
 
+// 파일명·폴더명 등 사용자 입력을 HTML 속성/본문에 넣을 때 사용
 function escapeAttr(s){
-  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function renderFileChips(){
   fileChipsEl.innerHTML = pendingFiles.map(f => `
     <span class="file-chip" data-id="${f.id}">
-      <span class="chip-name">${f.name}</span>
+      <span class="chip-name">${escapeAttr(f.name)}</span>
       <input type="text" class="chip-loc" data-loc="${f.id}" placeholder="지점명/지역 입력" value="${escapeAttr(f.location)}">
       <span class="chip-x" data-remove="${f.id}">✕</span>
     </span>
@@ -929,6 +930,11 @@ function parseTimeMs(t){
 }
 
 // 관측 시각 문자열에서 시(0~23)만 뽑아낸다 (시간대 필터용)
+// 시각 문자열 비교는 시 앞 0이 없을 때("9:18" > "10:00") 순서가 틀어지므로 실제 시각(ms)으로 정렬
+function sortRowsByTime(rows){
+  return rows.sort((a, b) => parseTimeMs(a.time) - parseTimeMs(b.time));
+}
+
 function parseRowHour(t){
   const m = String(t).match(/^\d{4}-\d{2}-\d{2}\s+(\d{1,2}):/);
   return m ? Number(m[1]) : null;
@@ -1126,7 +1132,7 @@ function drawEdges(edges, styleForEdge){
   let distanceKm = 0;
   const validLatLngs = [];
   edges.forEach(({ a, b, d, avgTemp, isRisk, points, i, locationLabel }) => {
-    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
+    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${escapeAttr(locationLabel)}</div>` : '';
     const style = styleForEdge({ avgTemp, isRisk });
 
     // 지점 클릭 시 해당 지점 전후 구간의 관측값 추이 그래프 표시 (선/점 공용)
@@ -1178,7 +1184,7 @@ function drawEdges(edges, styleForEdge){
 function drawClusters(pickedClusters){
   const clusters = [];
   pickedClusters.forEach(({ cluster, severity, avgTemp, minTemp, maxTemp, minFriction, startT, endT, mid, locationLabel }) => {
-    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${locationLabel}</div>` : '';
+    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${escapeAttr(locationLabel)}</div>` : '';
     const markerColor = severityColor(severity);
     const levelLabel = severity === 'danger' ? '위험' : '주의';
     clusters.push({ points: cluster, severity });
@@ -1699,7 +1705,7 @@ runBtn.addEventListener('click', () => {
   }
 
   const routes = Array.from(siteMap.values()).map(({ site, fileName, location, rows }) => {
-    rows.sort((a, b) => a.time < b.time ? -1 : (a.time > b.time ? 1 : 0));
+    sortRowsByTime(rows);
     repairIntegerCarry(rows);
     return { site, fileName, location, rows };
   });
@@ -1755,7 +1761,7 @@ function showRoadObservations(){
       sites.get(row.site).push(row);
     });
     sites.forEach((siteRows, site) => {
-      siteRows.sort((a,b) => a.time.localeCompare(b.time));
+      sortRowsByTime(siteRows);
       repairIntegerCarry(siteRows);
       routes.push({site, fileName:file.name, location:road.label, rows:siteRows});
     });
