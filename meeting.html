@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>노면결빙 관측 브리핑</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg:#f3f5f8; --card:#fff; --ink:#0f1b2d; --sub:#5b6778; --line:#e2e7ee;
+  --danger:#dc2626; --caution:#f59e0b; --normal:#94a3b8; --navy:#1e3a5f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Pretendard,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1600px;margin:0 auto;padding:24px 28px 20px}
+
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.eyebrow{font-size:14px;font-weight:600;color:var(--sub);letter-spacing:.02em}
+h1{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.02em}
+.roads{display:flex;gap:8px}
+.roads button{font:inherit;font-size:16px;font-weight:700;padding:10px 18px;border-radius:10px;
+  border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer}
+.roads button.active{background:var(--navy);border-color:var(--navy);color:#fff}
+
+.headline{background:var(--navy);color:#fff;border-radius:16px;padding:22px 28px;margin-bottom:16px;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.headline .big{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.35}
+.headline .big em{font-style:normal;color:#fca5a5}
+.headline .small{font-size:16px;color:#c7d4e6;margin-top:6px}
+
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+.kpi .label{font-size:15px;color:var(--sub);font-weight:600}
+.kpi .value{font-size:36px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .value small{font-size:18px;font-weight:700;margin-left:2px}
+.kpi .note{font-size:14px;color:var(--sub);margin-top:4px}
+.kpi.red .value{color:var(--danger)}
+
+.main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(340px,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h2{margin:0 0 4px;font-size:19px;font-weight:800}
+.card .hint{font-size:14px;color:var(--sub);margin:0 0 12px}
+.map-card{padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.map-head{padding:16px 20px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+#map{flex:1;min-height:560px}
+.leaflet-tile-pane{filter:grayscale(.75) brightness(1.04) contrast(.95)}
+.legend{display:flex;gap:16px;font-size:15px;font-weight:600;color:var(--sub);flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:22px;height:6px;border-radius:3px;margin-right:6px;vertical-align:middle;background:var(--c)}
+
+.side{display:flex;flex-direction:column;gap:16px}
+.days{display:flex;flex-direction:column;gap:8px}
+.day{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:12px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit;text-align:left;color:inherit}
+.day:hover{border-color:#b6c2d2}
+.day.active{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy) inset}
+.day .d{font-size:16px;font-weight:700}
+.day .t{font-size:13px;color:var(--sub);margin-top:2px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:4px;vertical-align:1px}
+.tag.dawn{background:#fee2e2;color:#991b1b}
+.tag.eve{background:#e0e7ef;color:#334155}
+.tag.day{background:#fef3c7;color:#92400e}
+.bar{height:16px;border-radius:5px;background:#eef1f5;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.pct{font-size:18px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+
+.spots{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.spot{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.spot:hover{border-color:#b6c2d2}
+.num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--danger);color:#fff;font-weight:800;
+  display:flex;align-items:center;justify-content:center;font-size:15px}
+.spot .m{font-size:16px;font-weight:700}
+.spot .s{font-size:13px;color:var(--sub);margin-top:2px}
+.empty{font-size:15px;color:var(--sub);padding:8px 2px}
+.pin{width:30px;height:30px;border-radius:50%;background:var(--danger);color:#fff;font-weight:800;font-size:15px;
+  display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35)}
+
+footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:14px;line-height:1.6}
+footer a{color:var(--navy);font-weight:700}
+
+@media (max-width:1100px){
+  .main{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  #map{min-height:440px}
+}
+@media (max-width:600px){
+  .wrap{padding:16px}
+  h1{font-size:24px}
+  .headline .big{font-size:21px}
+  .kpi .value{font-size:28px}
+}
+@media print{
+  body{background:#fff}
+  .roads{display:none}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">도로 기상 이동관측 · 겨울철 노면결빙 브리핑</div>
+      <h1 id="title">-</h1>
+    </div>
+    <div class="roads" id="roads" role="group" aria-label="노선 선택">
+      <button data-road="27">27번 국도</button>
+      <button data-road="24">24번 국도</button>
+    </div>
+  </header>
+
+  <section class="headline">
+    <div>
+      <div class="big" id="headBig">-</div>
+      <div class="small" id="headSmall">-</div>
+    </div>
+  </section>
+
+  <section class="kpis">
+    <div class="kpi red"><div class="label">새벽 관측 시 결빙주의·위험 비율</div><div class="value" id="kDawn">-</div><div class="note" id="kDawnNote"></div></div>
+    <div class="kpi red"><div class="label">가장 길게 이어진 결빙위험 구간</div><div class="value" id="kLong">-</div><div class="note" id="kLongNote"></div></div>
+    <div class="kpi"><div class="label">최저 노면온도</div><div class="value" id="kMin">-</div><div class="note" id="kMinNote"></div></div>
+    <div class="kpi"><div class="label">실제 주행 관측</div><div class="value" id="kRuns">-</div><div class="note" id="kRunsNote"></div></div>
+  </section>
+
+  <section class="main">
+    <div class="card map-card">
+      <div class="map-head">
+        <div>
+          <h2 id="mapTitle">-</h2>
+        </div>
+        <div class="legend">
+          <span style="--c:var(--danger)">결빙위험 (노면 −1℃ 이하)</span>
+          <span style="--c:var(--caution)">결빙주의 (노면 1℃ 이하)</span>
+          <span style="--c:var(--normal)">해당 없음</span>
+        </div>
+      </div>
+      <div id="map"></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>관측일별 결빙주의·위험 비율</h2>
+        <p class="hint">같은 도로라도 새벽에 달린 날 비율이 높습니다 · 날짜를 누르면 지도가 바뀝니다</p>
+        <div class="days" id="days"></div>
+      </div>
+      <div class="card">
+        <h2 id="spotTitle">결빙위험 구간</h2>
+        <p class="hint">선택한 날 노면 −1℃ 이하가 이어진 구간 · 누르면 지도에서 확대</p>
+        <ul class="spots" id="spots"></ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>
+      판정 기준: 결빙위험 = 노면온도 −1℃ 이하 또는 마찰계수 0.3 이하 · 결빙주의 = 노면온도 1℃ 이하<br>
+      과거 관측자료입니다. 현재 도로 상태나 예보가 아니며, 기준 해당이 실제 결빙 확인을 뜻하지는 않습니다. 지도는 기록된 GPS 위치를 연결한 것입니다.
+    </div>
+    <div><a href="./">상세 분석 화면 →</a></div>
+  </footer>
+</div>
+
+<script src="road-observations.js"></script>
+<script>
+/* ---------- 판정 기준 (상세 화면 index.html 기본값과 동일) ---------- */
+const DANGER_ROAD_TEMP = -1;
+const CAUTION_ROAD_TEMP = 1;
+const DANGER_FRICTION = 0.3;
+const MAX_PLAUSIBLE_KMH = 200;
+const MAX_GAP_MINUTES = 5;
+
+const ROADS = {
+  '27': { label: '27번 국도 (곡성~고흥)', month: '2025-01' },
+  '24': { label: '24번 국도 (담양~신안)', month: '2025-02' }
+};
+const COLORS = { 2: '#dc2626', 1: '#f59e0b', 0: '#94a3b8' };
+const WEEKDAYS = ['일','월','화','수','목','금','토'];
+
+/* ---------- 파싱 · 좌표 보정 (index.html과 같은 규칙) ---------- */
+function parseTimeMs(t){
+  const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(!m) return NaN;
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
+}
+function haversineKm(a, b){
+  const R = 6371, rad = Math.PI/180;
+  const dLat = (b[0]-a[0])*rad, dLon = (b[1]-a[1])*rad;
+  const h = Math.sin(dLat/2)**2 + Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function parseRows(text){
+  const rows = [];
+  text.split(/\r?\n/).forEach(raw => {
+    const line = raw.trim();
+    if(!line || line.startsWith('#') || line === '*') return;
+    const p = line.split(',');
+    if(p.length < 21) return;
+    const time = p[0].trim();
+    if(!time || time === '*') return;
+    const latDec = (p[9] || '').trim(), lonDec = (p[11] || '').trim();
+    if(!/^\d{1,4}$/.test(latDec) || !/^\d{1,4}$/.test(lonDec)) return;
+    const lat = Number(p[8]) + Number(latDec)/10000;
+    const lon = Number(p[10]) + Number(lonDec)/10000;
+    const roadTemp = parseFloat(p[14]);
+    if(!isFinite(lat) || !isFinite(lon) || !isFinite(roadTemp)) return;
+    if(lat < 30 || lat > 40 || lon < 120 || lon > 135) return;
+    rows.push({ time, ms: parseTimeMs(time), lat, lon, roadTemp, friction: parseFloat(p[16]) });
+  });
+  rows.sort((a, b) => a.ms - b.ms);
+  return rows;
+}
+// 위·경도 정수부가 한 박자 늦게 올라가는 로거 결함 복원 (index.html repairIntegerCarry와 동일)
+function repairIntegerCarry(rows){
+  for(let i = 0; i < rows.length; i++){
+    const cur = rows[i], ref = rows[i-1] || rows[i+1];
+    if(!ref) continue;
+    const dtHr = Math.max(Math.abs(cur.ms - ref.ms)/3600000, 1/3600);
+    if(haversineKm([ref.lat, ref.lon], [cur.lat, cur.lon]) / dtHr <= MAX_PLAUSIBLE_KMH) continue;
+    let best = null;
+    [-1, 0, 1].forEach(dLat => [-1, 0, 1].forEach(dLon => {
+      if(!dLat && !dLon) return;
+      const lat = cur.lat + dLat, lon = cur.lon + dLon;
+      const dist = haversineKm([ref.lat, ref.lon], [lat, lon]);
+      if(!best || dist < best.dist) best = { lat, lon, dist };
+    }));
+    if(best && best.dist / dtHr <= MAX_PLAUSIBLE_KMH){ cur.lat = best.lat; cur.lon = best.lon; }
+  }
+  return rows;
+}
+// 기록 공백(5분 초과)이나 비현실적 이동(200km/h 초과)은 이어진 주행으로 보지 않는다
+function isBreak(a, b){
+  const dist = haversineKm([a.lat, a.lon], [b.lat, b.lon]);
+  const dtHr = Math.abs(b.ms - a.ms)/3600000;
+  if(!isFinite(dtHr) || dtHr <= 0) return dist > 1;
+  if(dtHr*60 > MAX_GAP_MINUTES) return true;
+  return dist/dtHr > MAX_PLAUSIBLE_KMH;
+}
+function severityOf(r){
+  if(r.roadTemp <= DANGER_ROAD_TEMP || (isFinite(r.friction) && r.friction <= DANGER_FRICTION)) return 2;
+  return r.roadTemp <= CAUTION_ROAD_TEMP ? 1 : 0;
+}
+
+/* ---------- 하루치 관측 요약 ---------- */
+function summarizeDay(file){
+  const rows = repairIntegerCarry(parseRows(file.text));
+  rows.forEach(r => { r.sev = severityOf(r); });
+
+  let km = 0;
+  for(let i = 1; i < rows.length; i++){
+    if(!isBreak(rows[i-1], rows[i])) km += haversineKm([rows[i-1].lat, rows[i-1].lon], [rows[i].lat, rows[i].lon]);
+  }
+
+  // 결빙위험 판정이 연속된 관측점을 하나의 구간으로 묶음
+  const spans = [];
+  let cur = null;
+  rows.forEach((r, i) => {
+    if(r.sev === 2){
+      if(cur && isBreak(rows[i-1], r)){ spans.push(cur); cur = null; }
+      (cur = cur || []).push(r);
+    } else if(cur){ spans.push(cur); cur = null; }
+  });
+  if(cur) spans.push(cur);
+  const dangerSpans = spans.map(pts => {
+    let len = 0;
+    for(let i = 1; i < pts.length; i++) len += haversineKm([pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]);
+    const coldest = pts.reduce((m, p) => p.roadTemp < m.roadTemp ? p : m, pts[0]);
+    return { pts, len, coldest, start: pts[0], end: pts[pts.length-1] };
+  }).sort((a, b) => (b.len - a.len) || (a.coldest.roadTemp - b.coldest.roadTemp));
+
+  const startHour = rows.length ? new Date(rows[0].ms).getHours() : 0;
+  // 출발 시각 기준: 03~07시 새벽, 17시 이후 저녁, 그 외 낮
+  const period = (startHour >= 3 && startHour < 8) ? 'dawn' : (startHour >= 17 ? 'eve' : 'day');
+  const n = rows.length || 1;
+  const coldest = rows.reduce((m, r) => (!m || r.roadTemp < m.roadTemp) ? r : m, null);
+  return {
+    file, rows, km, dangerSpans, period, coldest,
+    dangerPct: rows.filter(r => r.sev === 2).length / n * 100,
+    cautionPct: rows.filter(r => r.sev === 1).length / n * 100,
+    riskPct: rows.filter(r => r.sev > 0).length / n * 100
+  };
+}
+
+/* ---------- 표시 형식 ---------- */
+const pad = n => String(n).padStart(2, '0');
+function fmtDate(ms){ const d = new Date(ms); return `${d.getMonth()+1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`; }
+function fmtHM(ms){ const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtTemp(t){ return (t < 0 ? '−' : '') + Math.abs(t).toFixed(1) + '℃'; }
+const PERIOD_LABEL = { dawn: '새벽', eve: '저녁', day: '낮' };
+function rangePct(list){
+  const v = list.map(d => Math.round(d.riskPct));
+  const lo = Math.min(...v), hi = Math.max(...v);
+  return lo === hi ? `${hi}%` : `${lo}~${hi}%`;
+}
+
+/* ---------- 지도 ---------- */
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18, attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+let routeLayer = L.layerGroup().addTo(map);
+let spotLayer = L.layerGroup().addTo(map);
+const spotMarkers = [];
+
+function drawDay(day){
+  routeLayer.clearLayers();
+  spotLayer.clearLayers();
+  spotMarkers.length = 0;
+  const rows = day.rows;
+  // 위험도가 낮은 선부터 그려 위험 구간이 위에 오도록
+  [0, 1, 2].forEach(level => {
+    for(let i = 1; i < rows.length; i++){
+      const a = rows[i-1], b = rows[i];
+      if(isBreak(a, b)) continue;
+      const sev = Math.max(a.sev, b.sev);
+      if(sev !== level) continue;
+      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+        color: COLORS[sev], weight: sev ? 8 : 4, opacity: sev ? 0.95 : 0.7, lineCap: 'round'
+      }).addTo(routeLayer);
+    }
+  });
+  day.dangerSpans.slice(0, 5).forEach((s, idx) => {
+    const m = L.marker([s.coldest.lat, s.coldest.lon], {
+      icon: L.divIcon({ className: '', html: `<div class="pin">${idx+1}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }),
+      zIndexOffset: 1000
+    }).bindPopup(
+      `<b>결빙위험 구간 ${idx+1}</b><br>최저 노면온도 ${fmtTemp(s.coldest.roadTemp)} (${fmtHM(s.coldest.ms)})<br>` +
+      `${s.len >= 0.1 ? '약 ' + s.len.toFixed(1) + 'km 연속 · ' : '단일 관측 지점 · '}${fmtHM(s.start.ms)}~${fmtHM(s.end.ms)}`
+    ).addTo(spotLayer);
+    spotMarkers.push(m);
+  });
+  const latlngs = rows.map(r => [r.lat, r.lon]);
+  if(latlngs.length) map.fitBounds(latlngs, { padding: [30, 30] });
+}
+
+/* ---------- 화면 구성 ---------- */
+let days = [];
+let activeIdx = 0;
+
+function renderDays(){
+  const el = document.getElementById('days');
+  el.innerHTML = days.map((d, i) => {
+    const first = d.rows[0], last = d.rows[d.rows.length-1];
+    return `<button class="day${i === activeIdx ? ' active' : ''}" data-i="${i}">
+      <div>
+        <div class="d">${fmtDate(first.ms)}<span class="tag ${d.period}">${PERIOD_LABEL[d.period]}</span></div>
+        <div class="t">${fmtHM(first.ms)}~${fmtHM(last.ms)} · ${Math.round(d.km)}km</div>
+      </div>
+      <div class="bar" title="결빙위험 ${d.dangerPct.toFixed(0)}% · 결빙주의 ${d.cautionPct.toFixed(0)}%">
+        <i style="width:${d.dangerPct}%;background:var(--danger)"></i><i style="width:${d.cautionPct}%;background:var(--caution)"></i>
+      </div>
+      <div class="pct">${Math.round(d.riskPct)}%</div>
+    </button>`;
+  }).join('');
+}
+
+function renderSpots(){
+  const d = days[activeIdx];
+  document.getElementById('spotTitle').textContent = `${fmtDate(d.rows[0].ms)} 결빙위험 구간`;
+  const el = document.getElementById('spots');
+  if(!d.dangerSpans.length){
+    el.innerHTML = `<li class="empty">이날은 노면 −1℃ 이하 구간이 관측되지 않았습니다.</li>`;
+    return;
+  }
+  el.innerHTML = d.dangerSpans.slice(0, 5).map((s, i) => `
+    <li class="spot" data-i="${i}">
+      <div class="num">${i+1}</div>
+      <div>
+        <div class="m">${s.len >= 0.1 ? '약 ' + s.len.toFixed(1) + 'km 연속' : '단일 관측 지점'} · 최저 ${fmtTemp(s.coldest.roadTemp)}</div>
+        <div class="s">${fmtHM(s.start.ms)}~${fmtHM(s.end.ms)} 통과</div>
+      </div>
+    </li>`).join('') +
+    (d.dangerSpans.length > 5 ? `<li class="empty">외 ${d.dangerSpans.length - 5}곳 (짧은 구간)</li>` : '');
+}
+
+function selectDay(i){
+  activeIdx = i;
+  const d = days[i];
+  document.getElementById('mapTitle').textContent =
+    `${fmtDate(d.rows[0].ms)} ${PERIOD_LABEL[d.period]} 주행 · ${fmtHM(d.rows[0].ms)}~${fmtHM(d.rows[d.rows.length-1].ms)}`;
+  renderDays();
+  renderSpots();
+  drawDay(d);
+}
+
+function selectRoad(id){
+  const road = ROADS[id];
+  document.querySelectorAll('#roads button').forEach(b => b.classList.toggle('active', b.dataset.road === id));
+  days = BUILTIN_OBSERVATIONS.filter(f => f.date.startsWith(road.month)).map(summarizeDay).filter(d => d.rows.length);
+  days.sort((a, b) => a.rows[0].ms - b.rows[0].ms);
+
+  document.getElementById('title').textContent = `${road.label} 겨울철 노면결빙 관측 결과`;
+
+  const dawn = days.filter(d => d.period === 'dawn');
+  const other = days.filter(d => d.period !== 'dawn');
+  const allSpans = days.flatMap(d => d.dangerSpans.map(s => ({ s, d })));
+  const longest = allSpans.reduce((m, x) => (!m || x.s.len > m.s.len) ? x : m, null);
+  const coldestDay = days.reduce((m, d) => (!m || d.coldest.roadTemp < m.coldest.roadTemp) ? d : m, null);
+  const totalKm = days.reduce((s, d) => s + d.km, 0);
+
+  // 헤드라인: 새벽 관측일과 그 외 관측일의 결빙주의·위험 비율 대비
+  if(dawn.length){
+    document.getElementById('headBig').innerHTML =
+      `새벽에 달린 ${dawn.length}일, 관측 지점의 <em>${rangePct(dawn)}</em>가 결빙주의·위험 기준에 해당했습니다`;
+    document.getElementById('headSmall').textContent = other.length
+      ? `같은 도로를 저녁·낮에 달린 ${other.length}일은 ${rangePct(other)} · 노면온도 1℃ 이하 기준, ${month(road)} 실제 주행 관측`
+      : `노면온도 1℃ 이하 기준 · ${month(road)} 실제 주행 관측`;
+  } else {
+    document.getElementById('headBig').textContent = `관측 지점의 ${rangePct(days)}가 결빙주의·위험 기준에 해당했습니다`;
+    document.getElementById('headSmall').textContent = `노면온도 1℃ 이하 기준 · ${month(road)} 실제 주행 관측`;
+  }
+
+  const dawnMax = dawn.length ? dawn.reduce((m, d) => d.riskPct > m.riskPct ? d : m) : null;
+  document.getElementById('kDawn').innerHTML = dawnMax ? `${Math.round(dawnMax.riskPct)}<small>%</small>` : '-';
+  document.getElementById('kDawnNote').textContent = dawnMax
+    ? `${fmtDate(dawnMax.rows[0].ms)} ${fmtHM(dawnMax.rows[0].ms)}~${fmtHM(dawnMax.rows[dawnMax.rows.length-1].ms)} 관측 지점 기준`
+    : '새벽 관측 없음';
+  document.getElementById('kLong').innerHTML = longest ? `${longest.s.len.toFixed(1)}<small>km</small>` : '-';
+  document.getElementById('kLongNote').textContent = longest
+    ? `${fmtDate(longest.d.rows[0].ms)} ${fmtHM(longest.s.start.ms)}~${fmtHM(longest.s.end.ms)} 노면 −1℃ 이하 연속`
+    : '노면 −1℃ 이하 연속 구간 없음';
+  document.getElementById('kMin').textContent = fmtTemp(coldestDay.coldest.roadTemp);
+  document.getElementById('kMinNote').textContent = `${fmtDate(coldestDay.coldest.ms)} ${fmtHM(coldestDay.coldest.ms)} 관측`;
+  document.getElementById('kRuns').innerHTML = `${days.length}<small>회</small>`;
+  document.getElementById('kRunsNote').textContent =
+    `총 ${Math.round(totalKm).toLocaleString()}km · 새벽 ${dawn.length}회, 저녁·낮 ${other.length}회`;
+
+  // 처음엔 결빙 비율이 가장 높았던 날을 지도에 표시
+  const worst = days.reduce((m, d, i) => d.riskPct > days[m].riskPct ? i : m, 0);
+  selectDay(worst);
+}
+function month(road){ const [y, m] = road.month.split('-'); return `${y}년 ${Number(m)}월`; }
+
+document.getElementById('roads').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(b) selectRoad(b.dataset.road);
+});
+document.getElementById('days').addEventListener('click', e => {
+  const b = e.target.closest('.day');
+  if(b) selectDay(Number(b.dataset.i));
+});
+document.getElementById('spots').addEventListener('click', e => {
+  const li = e.target.closest('.spot');
+  if(!li) return;
+  const s = days[activeIdx].dangerSpans[Number(li.dataset.i)];
+  const pts = s.pts.map(p => [p.lat, p.lon]);
+  if(pts.length > 1) map.fitBounds(pts, { padding: [60, 60], maxZoom: 14 });
+  else map.setView(pts[0], 14);
+  spotMarkers[Number(li.dataset.i)].openPopup();
+});
+
+selectRoad('27');
+</script>
+</body>
+</html>
