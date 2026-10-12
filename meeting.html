@@ -6,6 +6,9 @@
 <title>노면결빙 관측 브리핑</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<!-- 휴대폰에서 한 손가락 스크롤이 지도에 갇히지 않도록: 지도 이동은 두 손가락 -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
 :root{
@@ -13,14 +16,14 @@
   --danger:#dc2626; --caution:#f59e0b; --normal:#94a3b8; --navy:#1e3a5f;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--ink);
+html,body{margin:0;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;background:var(--bg);color:var(--ink);
   font-family:Pretendard,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1600px;margin:0 auto;padding:24px 28px 20px}
 
 header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .eyebrow{font-size:14px;font-weight:600;color:var(--sub);letter-spacing:.02em}
 h1{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.02em}
-.roads{display:flex;gap:8px}
+.roads{display:flex;flex-wrap:wrap;gap:8px}
 .roads button{font:inherit;font-size:16px;font-weight:700;padding:10px 18px;border-radius:10px;
   border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer}
 .roads button.active{background:var(--navy);border-color:var(--navy);color:#fff}
@@ -52,10 +55,10 @@ h1{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.02em}
 
 .side{display:flex;flex-direction:column;gap:16px}
 .days{display:flex;flex-direction:column;gap:8px}
-.day{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:12px;padding:10px 12px;
+button.day{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:12px;padding:10px 12px;
   border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit;text-align:left;color:inherit}
-.day:hover{border-color:#b6c2d2}
-.day.active{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy) inset}
+button.day:hover{border-color:#b6c2d2}
+button.day.active{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy) inset}
 .day .d{font-size:16px;font-weight:700}
 .day .t{font-size:13px;color:var(--sub);margin-top:2px}
 .tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:4px;vertical-align:1px}
@@ -85,11 +88,41 @@ footer a{color:var(--navy);font-weight:700}
   .kpis{grid-template-columns:repeat(2,1fr)}
   #map{min-height:440px}
 }
+/* 휴대폰: 화물연대 등 현장 관계자가 주로 보는 화면 */
 @media (max-width:600px){
-  .wrap{padding:16px}
-  h1{font-size:24px}
-  .headline .big{font-size:21px}
-  .kpi .value{font-size:28px}
+  .wrap{padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
+  header{margin-bottom:12px;gap:12px}
+  .eyebrow{font-size:12px}
+  h1{font-size:22px;line-height:1.3}
+  .roads{width:100%}
+  .roads button{flex:1 1 40%;padding:12px 8px}
+  .headline{padding:16px 18px;border-radius:14px;margin-bottom:12px}
+  .headline .big{font-size:20px}
+  .headline .small{font-size:14px;line-height:1.5}
+  .kpis{gap:10px;margin-bottom:12px}
+  .kpi{padding:12px 14px;border-radius:12px}
+  .kpi .label{font-size:13px;line-height:1.35;word-break:keep-all}
+  .kpi .value{font-size:26px;margin-top:4px}
+  .kpi .value small{font-size:15px}
+  .kpi .note{font-size:12px;line-height:1.45}
+  .main,.side{gap:12px}
+  .card{padding:16px}
+  .card.map-card{padding:0}
+  .card h2{font-size:17px}
+  .card .hint{font-size:13px;line-height:1.5}
+  .map-head{padding:14px 16px 10px}
+  .legend{gap:6px 12px;font-size:13px}
+  .legend span::before{width:16px}
+  #map{min-height:0;height:min(62vh,420px);flex:none}
+  /* 날짜 · 비율 한 줄, 막대는 아래 전체 폭으로 */
+  button.day{grid-template-columns:1fr auto;grid-template-areas:"info pct" "bar bar";gap:8px 12px;padding:12px 14px}
+  .day > div:first-child{grid-area:info}
+  .day .bar{grid-area:bar;height:10px}
+  .day .pct{grid-area:pct;font-size:20px}
+  .spot{padding:12px}
+  .spot .m{font-size:15px}
+  footer{font-size:12px;flex-direction:column;gap:10px}
+  footer a{display:inline-block;padding:6px 0}
 }
 @media print{
   body{background:#fff}
@@ -105,8 +138,6 @@ footer a{color:var(--navy);font-weight:700}
       <h1 id="title">-</h1>
     </div>
     <div class="roads" id="roads" role="group" aria-label="노선 선택">
-      <button data-road="27">27번 국도</button>
-      <button data-road="24">24번 국도</button>
     </div>
   </header>
 
@@ -162,7 +193,8 @@ footer a{color:var(--navy);font-weight:700}
   </footer>
 </div>
 
-<script src="road-observations.js"></script>
+<script src="road-observations.js?v=bf9ab9ba2e"></script>
+<script src="observation-targets.js?v=1"></script>
 <script>
 /* ---------- 판정 기준 (상세 화면 index.html 기본값과 동일) ---------- */
 const DANGER_ROAD_TEMP = -1;
@@ -171,10 +203,8 @@ const DANGER_FRICTION = 0.3;
 const MAX_PLAUSIBLE_KMH = 200;
 const MAX_GAP_MINUTES = 5;
 
-const ROADS = {
-  '27': { label: '27번 국도 (곡성~고흥)', month: '2025-01' },
-  '24': { label: '24번 국도 (담양~신안)', month: '2025-02' }
-};
+// 관측 대상 메뉴는 미리 정하지 않고 내장자료의 target(관측 대상 이름)별로 만든다 (observation-targets.js)
+const GROUPS = groupObservationsByTarget(BUILTIN_OBSERVATIONS);
 const COLORS = { 2: '#dc2626', 1: '#f59e0b', 0: '#94a3b8' };
 const WEEKDAYS = ['일','월','화','수','목','금','토'];
 
@@ -295,7 +325,14 @@ function rangePct(list){
 }
 
 /* ---------- 지도 ---------- */
-const map = L.map('map', { zoomControl: true, scrollWheelZoom: false });
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false, gestureHandling: L.Browser.mobile });
+
+// 세로 한 줄 배치(휴대폰)에서는 지도가 목록 위에 있으므로, 날짜/구간을 누르면 지도가 보이게 스크롤
+function revealMap(){
+  if(!window.matchMedia('(max-width:1100px)').matches) return;
+  const r = document.querySelector('.map-card').getBoundingClientRect();
+  if(r.top < 0 || r.bottom > window.innerHeight) document.querySelector('.map-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 18, attribution: '© OpenStreetMap contributors'
 }).addTo(map);
@@ -384,10 +421,21 @@ function selectDay(i){
   drawDay(d);
 }
 
+// 버튼에는 괄호 속 구간을 뺀 이름(예: 27번국도, 27번국도 2026)만, 같은 이름이 둘 이상이면 관측 시기까지 붙여 구분
+function renderRoadButtons(){
+  const short = g => g.target.replace(/\s*\([^)]*\)/, '').trim() || g.target;
+  const counts = GROUPS.reduce((m, g) => (m[short(g)] = (m[short(g)] || 0) + 1, m), {});
+  document.getElementById('roads').innerHTML = GROUPS.map((g, i) => {
+    const text = counts[short(g)] > 1 ? `${short(g)} · ${g.period}` : short(g);
+    return `<button data-road="${i}" title="${escapeHtml(g.target)} · ${escapeHtml(g.period)}">${escapeHtml(text)}</button>`;
+  }).join('');
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 function selectRoad(id){
-  const road = ROADS[id];
-  document.querySelectorAll('#roads button').forEach(b => b.classList.toggle('active', b.dataset.road === id));
-  days = BUILTIN_OBSERVATIONS.filter(f => f.date.startsWith(road.month)).map(summarizeDay).filter(d => d.rows.length);
+  const road = { label: GROUPS[id].target, period: GROUPS[id].period };
+  document.querySelectorAll('#roads button').forEach(b => b.classList.toggle('active', b.dataset.road === String(id)));
+  days = GROUPS[id].files.map(summarizeDay).filter(d => d.rows.length);
   days.sort((a, b) => a.rows[0].ms - b.rows[0].ms);
 
   document.getElementById('title').textContent = `${road.label} 겨울철 노면결빙 관측 결과`;
@@ -430,15 +478,17 @@ function selectRoad(id){
   const worst = days.reduce((m, d, i) => d.riskPct > days[m].riskPct ? i : m, 0);
   selectDay(worst);
 }
-function month(road){ const [y, m] = road.month.split('-'); return `${y}년 ${Number(m)}월`; }
+function month(road){ return road.period; }
 
 document.getElementById('roads').addEventListener('click', e => {
   const b = e.target.closest('button');
-  if(b) selectRoad(b.dataset.road);
+  if(b) selectRoad(Number(b.dataset.road));
 });
 document.getElementById('days').addEventListener('click', e => {
   const b = e.target.closest('.day');
-  if(b) selectDay(Number(b.dataset.i));
+  if(!b) return;
+  selectDay(Number(b.dataset.i));
+  revealMap();
 });
 document.getElementById('spots').addEventListener('click', e => {
   const li = e.target.closest('.spot');
@@ -448,9 +498,11 @@ document.getElementById('spots').addEventListener('click', e => {
   if(pts.length > 1) map.fitBounds(pts, { padding: [60, 60], maxZoom: 14 });
   else map.setView(pts[0], 14);
   spotMarkers[Number(li.dataset.i)].openPopup();
+  revealMap();
 });
 
-selectRoad('27');
+renderRoadButtons();
+if(GROUPS.length) selectRoad(0);
 </script>
 </body>
 </html>
