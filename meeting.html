@@ -42,6 +42,24 @@ h1{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.02em}
 .kpi .note{font-size:14px;color:var(--sub);margin-top:4px}
 .kpi.red .value{color:var(--danger)}
 
+.years-card{margin-bottom:16px}
+.years-head{display:flex;justify-content:space-between;align-items:baseline;gap:4px 16px;flex-wrap:wrap}
+.years-head .hint{margin:0 0 10px}
+.years-wrap{overflow-x:auto}
+.years{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.years th,.years td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.years thead th{font-size:13px;color:var(--sub);font-weight:700;background:#f7f9fb}
+.years th:first-child{text-align:left}
+.years tbody th{font-weight:800}
+.years tbody tr{cursor:pointer}
+.years tbody tr:hover{background:#f7f9fb}
+.years tbody tr.on{background:#eef3fa}
+.years tbody tr.on th{box-shadow:inset 4px 0 0 var(--navy)}
+.years .risk{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.years .risk .bar{width:90px;height:10px}
+.years .risk b{min-width:40px;font-weight:800}
+.years .hot{color:var(--danger)}
+.years-note{margin:10px 0 0;font-size:13px;color:var(--sub)}
 .main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(340px,1fr);gap:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
 .card h2{margin:0 0 4px;font-size:19px;font-weight:800}
@@ -105,6 +123,12 @@ footer a{color:var(--navy);font-weight:700}
   .kpi .value{font-size:26px;margin-top:4px}
   .kpi .value small{font-size:15px}
   .kpi .note{font-size:12px;line-height:1.45}
+  .years{font-size:13px}
+  .years th,.years td{padding:9px 6px}
+  .years .opt{display:none}
+  .years .risk .bar{display:none}
+  .years .risk b{min-width:34px}
+  .years-note{font-size:12px}
   .main,.side{gap:12px}
   .card{padding:16px}
   .card.map-card{padding:0}
@@ -155,6 +179,15 @@ footer a{color:var(--navy);font-weight:700}
     <div class="kpi"><div class="label">실제 주행 관측</div><div class="value" id="kRuns">-</div><div class="note" id="kRunsNote"></div></div>
   </section>
 
+  <section class="card years-card" id="yearsCard">
+    <div class="years-head">
+      <h2>연도별 비교</h2>
+      <p class="hint">그해 모든 주행의 관측 지점 기준 · 행을 누르면 그 연도로 바뀝니다</p>
+    </div>
+    <div class="years-wrap"><table class="years" id="years"></table></div>
+    <p class="years-note">연도마다 주행 시간대가 다릅니다. 낮 주행이 많은 해는 비율이 낮게 나오므로 '새벽 주행 시' 값을 함께 보세요.</p>
+  </section>
+
   <section class="main">
     <div class="card map-card">
       <div class="map-head">
@@ -172,8 +205,8 @@ footer a{color:var(--navy);font-weight:700}
 
     <div class="side">
       <div class="card">
-        <h2>관측일별 결빙주의·위험 비율</h2>
-        <p class="hint">같은 도로라도 새벽에 달린 날 비율이 높습니다 · 날짜를 누르면 지도가 바뀝니다</p>
+        <h2>주행별 결빙주의·위험 비율</h2>
+        <p class="hint">새벽 주행의 비율이 높습니다 · 주행을 누르면 지도가 바뀝니다</p>
         <div class="days" id="days"></div>
       </div>
       <div class="card">
@@ -193,8 +226,8 @@ footer a{color:var(--navy);font-weight:700}
   </footer>
 </div>
 
-<script src="road-observations.js?v=bf9ab9ba2e"></script>
-<script src="observation-targets.js?v=1"></script>
+<script src="road-observations.js?v=84920eccab"></script>
+<script src="observation-targets.js?v=4"></script>
 <script>
 /* ---------- 판정 기준 (상세 화면 index.html 기본값과 동일) ---------- */
 const DANGER_ROAD_TEMP = -1;
@@ -236,7 +269,7 @@ function parseRows(text){
     const roadTemp = parseFloat(p[14]);
     if(!isFinite(lat) || !isFinite(lon) || !isFinite(roadTemp)) return;
     if(lat < 30 || lat > 40 || lon < 120 || lon > 135) return;
-    rows.push({ time, ms: parseTimeMs(time), lat, lon, roadTemp, friction: parseFloat(p[16]) });
+    rows.push({ time, ms: parseTimeMs(time), lat, lon, roadTemp, airTemp: parseFloat(p[2]), friction: parseFloat(p[16]) });
   });
   rows.sort((a, b) => a.ms - b.ms);
   return rows;
@@ -426,16 +459,18 @@ function renderRoadButtons(){
   const short = g => g.target.replace(/\s*\([^)]*\)/, '').trim() || g.target;
   const counts = GROUPS.reduce((m, g) => (m[short(g)] = (m[short(g)] || 0) + 1, m), {});
   document.getElementById('roads').innerHTML = GROUPS.map((g, i) => {
-    const text = counts[short(g)] > 1 ? `${short(g)} · ${g.period}` : short(g);
+    const name = /^\d{4}$/.test(short(g)) ? `${short(g)}년` : short(g);
+    const text = counts[short(g)] > 1 ? `${name} · ${g.period}` : name;
     return `<button data-road="${i}" title="${escapeHtml(g.target)} · ${escapeHtml(g.period)}">${escapeHtml(text)}</button>`;
   }).join('');
 }
 function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function selectRoad(id){
-  const road = { label: GROUPS[id].target, period: GROUPS[id].period };
+  // 관측 자료 이름이 연도(예: 2025)면 "2025년"으로 읽히게
+  const road = { label: /^\d{4}$/.test(GROUPS[id].target) ? `${GROUPS[id].target}년` : GROUPS[id].target, period: GROUPS[id].period };
   document.querySelectorAll('#roads button').forEach(b => b.classList.toggle('active', b.dataset.road === String(id)));
-  days = GROUPS[id].files.map(summarizeDay).filter(d => d.rows.length);
+  days = daysOf(id).slice();
   days.sort((a, b) => a.rows[0].ms - b.rows[0].ms);
 
   document.getElementById('title').textContent = `${road.label} 겨울철 노면결빙 관측 결과`;
@@ -450,9 +485,9 @@ function selectRoad(id){
   // 헤드라인: 새벽 관측일과 그 외 관측일의 결빙주의·위험 비율 대비
   if(dawn.length){
     document.getElementById('headBig').innerHTML =
-      `새벽에 달린 ${dawn.length}일, 관측 지점의 <em>${rangePct(dawn)}</em>가 결빙주의·위험 기준에 해당했습니다`;
+      `새벽 주행 ${dawn.length}회, 관측 지점의 <em>${rangePct(dawn)}</em>가 결빙주의·위험 기준에 해당했습니다`;
     document.getElementById('headSmall').textContent = other.length
-      ? `같은 도로를 저녁·낮에 달린 ${other.length}일은 ${rangePct(other)} · 노면온도 1℃ 이하 기준, ${month(road)} 실제 주행 관측`
+      ? `저녁·낮 주행 ${other.length}회는 ${rangePct(other)} · 노면온도 1℃ 이하 기준, ${month(road)} 실제 주행 관측`
       : `노면온도 1℃ 이하 기준 · ${month(road)} 실제 주행 관측`;
   } else {
     document.getElementById('headBig').textContent = `관측 지점의 ${rangePct(days)}가 결빙주의·위험 기준에 해당했습니다`;
@@ -474,11 +509,56 @@ function selectRoad(id){
   document.getElementById('kRunsNote').textContent =
     `총 ${Math.round(totalKm).toLocaleString()}km · 새벽 ${dawn.length}회, 저녁·낮 ${other.length}회`;
 
+  renderYears(id);
+
   // 처음엔 결빙 비율이 가장 높았던 날을 지도에 표시
   const worst = days.reduce((m, d, i) => d.riskPct > days[m].riskPct ? i : m, 0);
   selectDay(worst);
 }
 function month(road){ return road.period; }
+
+// 연도(관측 자료)별 집계 - 그해 모든 주행의 관측 지점을 합쳐 평균·비율을 낸다
+const groupDaysCache = new Map();
+function daysOf(i){
+  if(!groupDaysCache.has(i)) groupDaysCache.set(i, GROUPS[i].files.map(summarizeDay).filter(d => d.rows.length));
+  return groupDaysCache.get(i);
+}
+function summarizeGroup(i){
+  const ds = daysOf(i);
+  const rows = ds.flatMap(d => d.rows);
+  const dawnRows = ds.filter(d => d.period === 'dawn').flatMap(d => d.rows);
+  const air = rows.map(r => r.airTemp).filter(isFinite);
+  const share = (list, test) => list.length ? list.filter(test).length / list.length * 100 : NaN;
+  return {
+    runs: ds.length, dawnRuns: ds.filter(d => d.period === 'dawn').length,
+    avgRoad: rows.length ? rows.reduce((s, r) => s + r.roadTemp, 0) / rows.length : NaN,
+    avgAir: air.length ? air.reduce((s, v) => s + v, 0) / air.length : NaN,
+    minRoad: rows.length ? Math.min(...rows.map(r => r.roadTemp)) : NaN,
+    dangerPct: share(rows, r => r.sev === 2), cautionPct: share(rows, r => r.sev === 1),
+    riskPct: share(rows, r => r.sev > 0), dawnRiskPct: share(dawnRows, r => r.sev > 0)
+  };
+}
+function renderYears(activeId){
+  const label = g => /^\d{4}$/.test(g.target) ? `${g.target}년` : `${g.target} · ${g.period}`;
+  const t = v => isFinite(v) ? fmtTemp(v) : '-';
+  const pctText = v => isFinite(v) ? `${Math.round(v)}%` : '-';
+  document.getElementById('years').innerHTML = `
+    <thead><tr><th>연도</th><th class="opt">주행</th><th>평균 노면</th><th>평균 기온</th><th class="opt">최저 노면</th><th><span class="opt">결빙</span>주의·위험</th><th>새벽<span class="opt"> 주행</span> 시</th></tr></thead>
+    <tbody>${GROUPS.map((g, i) => {
+      const y = summarizeGroup(i);
+      return `<tr data-i="${i}" class="${i === activeId ? 'on' : ''}">
+        <th>${escapeHtml(label(g))}</th>
+        <td class="opt">${y.runs}회 (새벽 ${y.dawnRuns})</td>
+        <td>${t(y.avgRoad)}</td><td>${t(y.avgAir)}</td><td class="opt">${t(y.minRoad)}</td>
+        <td><div class="risk"><div class="bar" title="결빙위험 ${Math.round(y.dangerPct)}% · 결빙주의 ${Math.round(y.cautionPct)}%"><i style="width:${y.dangerPct}%;background:var(--danger)"></i><i style="width:${y.cautionPct}%;background:var(--caution)"></i></div><b>${pctText(y.riskPct)}</b></div></td>
+        <td class="${y.dawnRiskPct >= 50 ? 'hot' : ''}"><b>${pctText(y.dawnRiskPct)}</b></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+}
+document.getElementById('years').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-i]');
+  if(tr) selectRoad(Number(tr.dataset.i));
+});
 
 document.getElementById('roads').addEventListener('click', e => {
   const b = e.target.closest('button');

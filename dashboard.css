@@ -136,3 +136,49 @@ body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 .add-target-btn:hover{background:var(--accent-soft)}
 @media(max-width:760px){.add-target-btn{width:100%}}
 @media print{.add-target-btn{display:none}}
+
+/* 관측 연도 → 관측 자료 2단계 메뉴 */
+.road-menu .menu-line{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;width:100%}
+.road-menu .menu-line .section-label{min-width:56px}
+.year-buttons{display:flex;flex-wrap:wrap;gap:6px;flex:1}
+.year-btn{font:inherit;font-size:15px;font-weight:800;padding:9px 18px;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--navy-soft);cursor:pointer;font-variant-numeric:tabular-nums}
+.year-btn:hover{border-color:#b6c2d2}
+.year-btn.active{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* 연도별 분석 */
+.year-card{margin:0 0 14px}
+.year-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 16px}
+.year-kpi{border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin:0}
+.year-kpi dt{font-size:12px;color:var(--muted);font-weight:600}
+.year-kpi dd{margin:4px 0 2px;font-size:24px;font-weight:800;color:var(--navy);letter-spacing:-.5px}
+.year-kpi small{font-size:11px;color:var(--muted)}
+.year-kpi.risk dd{color:var(--risk)}
+.year-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.year-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+.year-table th,.year-table td{padding:9px 10px;border-bottom:1px solid #edf1f5;text-align:right}
+.year-table thead th{font-size:11.5px;color:var(--muted);font-weight:700;background:#f6f8fb}
+.year-table th:first-child{text-align:left}
+.year-table tbody th{font-weight:800;color:var(--navy)}
+.year-table tbody tr{cursor:pointer}
+.year-table tbody tr:hover{background:#f6f8fb}
+.year-table tbody tr.on{background:var(--accent-soft)}
+.year-table tbody tr.on th{box-shadow:inset 3px 0 0 var(--accent)}
+.year-table td b{color:var(--risk)}
+.year-note{margin:10px 0 0;font-size:11px;color:var(--muted);line-height:1.6}
+@media(max-width:760px){
+  .year-card{order:3}
+  .year-kpis{grid-template-columns:1fr 1fr;gap:8px}
+  .year-kpi{padding:10px 12px}
+  .year-kpi dd{font-size:20px}
+  .year-btn{flex:1;padding:10px 0;text-align:center}
+  .road-menu .menu-line .section-label{flex-basis:100%}
+  .year-table{font-size:12.5px}
+  .year-table .opt{display:none} /* 좁은 화면: 선택 연도의 세부값은 위 카드에 있으므로 비교에 필요한 열만 */
+  .year-table th:first-child{position:sticky;left:0;background:#fff;z-index:1}
+  .year-table thead th:first-child{background:#f6f8fb}
+  .year-table tbody tr.on th{background:var(--accent-soft)}
+}
+@media print{.year-card{break-inside:avoid}}
+.strip-block-head{font-size:12px;font-weight:700;color:var(--navy-soft);margin:14px 0 4px;padding-top:10px;border-top:1px solid #edf1f5}
+.strip-block-head:first-child{margin-top:0;padding-top:0;border-top:0}
+.road-menu .menu-line[hidden]{display:none}
