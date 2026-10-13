@@ -1,5 +1,5 @@
 ﻿const fs=require('fs'),vm=require('vm'),assert=require('assert');
-const script=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
+const script=fs.readFileSync('analysis.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];
 new vm.Script(script);
 const ctx=vm.createContext({});
 vm.runInContext(fs.readFileSync('road-observations.js','utf8'),ctx);

@@ -182,3 +182,9 @@ body{font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
 .strip-block-head{font-size:12px;font-weight:700;color:var(--navy-soft);margin:14px 0 4px;padding-top:10px;border-top:1px solid #edf1f5}
 .strip-block-head:first-child{margin-top:0;padding-top:0;border-top:0}
 .road-menu .menu-line[hidden]{display:none}
+
+/* 상세 화면 → 회의용 요약(첫 화면)으로 돌아가기 */
+.back-link{font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;padding:8px 12px;border:1px solid var(--border);border-radius:6px;background:#fff;white-space:nowrap}
+.back-link:hover{background:var(--accent-soft)}
+@media(max-width:760px){.back-link{order:-1;align-self:flex-start}}
+@media print{.back-link{display:none}}

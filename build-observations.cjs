@@ -38,7 +38,7 @@ function writeBundle(entries){
 
 // 브라우저가 예전 자료를 캐시해 메뉴가 갱신되지 않는 일이 없도록, 화면들의 <script src="road-observations.js?v=..."> 값을 내용 해시로 바꾼다
 function bumpScriptVersion(hash){
-  ['index.html', 'meeting.html'].forEach(name => {
+  ['index.html', 'analysis.html'].forEach(name => {
     const file = path.join(ROOT, name);
     if(!fs.existsSync(file)) return;
     const html = fs.readFileSync(file, 'utf8');

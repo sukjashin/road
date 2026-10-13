@@ -2,2054 +2,587 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>도로결빙 위험구간 관측 지도</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>노면결빙 관측 브리핑</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <!-- 휴대폰에서 한 손가락 스크롤이 지도에 갇히지 않도록: 지도 이동은 두 손가락 -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.css">
 <script src="https://cdn.jsdelivr.net/npm/leaflet-gesture-handling@1.2.2/dist/leaflet-gesture-handling.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
-  :root{
-    --bg:#eef1f6;
-    --card:#ffffff;
-    --navy:#1c2b4a;
-    --navy-soft:#33456b;
-    --accent:#2f6fed;
-    --accent-soft:#eaf1ff;
-    --danger:#e6484f;
-    --danger-soft:#fdeceb;
-    --risk:#2563eb;
-    --risk-soft:#eaf1ff;
-    --warn:#f0a93e;
-    --warn-soft:#fdf3e3;
-    --safe:#2fb872;
-    --safe-soft:#e8f8ef;
-    --muted:#7d8aa0;
-    --border:#e6e9f0;
-  }
-  *{box-sizing:border-box;}
-  html,body{
-    margin:0;padding:0;
-    background:var(--bg);
-    color:var(--navy);
-    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,sans-serif;
-  }
-  .page{ max-width:1280px; margin:0 auto; padding:20px 20px 40px 20px; }
+:root{
+  --bg:#f3f5f8; --card:#fff; --ink:#0f1b2d; --sub:#5b6778; --line:#e2e7ee;
+  --danger:#dc2626; --caution:#f59e0b; --normal:#94a3b8; --navy:#1e3a5f;
+}
+*{box-sizing:border-box}
+html,body{margin:0;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%;background:var(--bg);color:var(--ink);
+  font-family:Pretendard,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1600px;margin:0 auto;padding:24px 28px 20px}
 
-  .top-bar{
-    background:var(--navy);
-    border-radius:14px;
-    padding:16px 22px;
-    margin-bottom:18px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    flex-wrap:wrap;
-    gap:10px;
-  }
-  .brand{ display:flex; align-items:center; gap:12px; }
-  .brand-badge{
-    width:10px;height:28px;background:var(--accent);border-radius:3px;flex-shrink:0;
-  }
-  .brand-title{ color:#fff; font-size:17px; font-weight:800; letter-spacing:-0.01em; }
-  .brand-sub{ color:#9fb0d0; font-size:12px; margin-top:2px; }
-  .update-time{
-    color:#cfe0ff; font-size:13px; font-weight:600;
-    background:#26375c; padding:6px 12px; border-radius:8px;
-  }
+header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+.eyebrow{font-size:14px;font-weight:600;color:var(--sub);letter-spacing:.02em}
+h1{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.02em}
+.roads{display:flex;flex-wrap:wrap;gap:8px}
+.roads button{font:inherit;font-size:16px;font-weight:700;padding:10px 18px;border-radius:10px;
+  border:1px solid var(--line);background:#fff;color:var(--sub);cursor:pointer}
+.roads button.active{background:var(--navy);border-color:var(--navy);color:#fff}
 
-  /* 결빙/폭염 모드 전환 */
-  .mode-toggle{ display:flex; gap:4px; background:#26375c; border-radius:10px; padding:4px; }
-  .mode-btn{
-    font-family:inherit; font-size:12.5px; font-weight:700; color:#9fb0d0;
-    background:transparent; border:none; border-radius:7px; padding:6px 12px; cursor:pointer;
-  }
-  .mode-btn:hover{ color:#fff; }
-  .mode-btn.active{ background:var(--accent); color:#fff; }
-  .mode-btn[data-mode="icing"].active{ background:#2563eb; }
-  .mode-btn[data-mode="heat"].active{ background:#e6484f; }
-  .road-menu{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px 18px; margin-bottom:18px; }
-  .road-buttons{ display:flex; gap:10px; flex-wrap:wrap; margin:10px 0; }
-  .road-btn{ font-family:inherit; font-size:14px; font-weight:700; padding:12px 16px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--navy); cursor:pointer; }
-  .road-btn.active{ background:var(--accent-soft); border-color:var(--accent); color:var(--accent); }
-  .archive-note{ font-size:12px; color:var(--navy-soft); line-height:1.6; }
-  .route-visibility{ background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px 18px; margin-bottom:18px; }
-  .rv-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
-  .rv-actions{ display:flex; gap:10px; }
-  .rv-link{ font-family:inherit; font-size:12px; font-weight:700; color:var(--accent); background:none; border:none; cursor:pointer; padding:2px 4px; }
-  .rv-link:hover{ text-decoration:underline; }
-  .rv-list{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-  .rv-item{
-    display:flex; align-items:center; gap:6px;
-    background:#f3f6fb; color:var(--navy-soft);
-    font-size:11.5px; font-weight:600;
-    padding:6px 10px; border-radius:20px; cursor:pointer; user-select:none;
-  }
-  .rv-item.off{ opacity:0.45; }
-  .rv-item input{ cursor:pointer; }
-  #observationDate{ font:inherit; padding:5px 8px; margin-left:6px; border:1px solid var(--border); border-radius:6px; }
+.headline{background:var(--navy);color:#fff;border-radius:16px;padding:22px 28px;margin-bottom:16px;
+  display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.headline .big{font-size:28px;font-weight:800;letter-spacing:-.02em;line-height:1.35}
+.headline .big em{font-style:normal;color:#fca5a5}
+.headline .small{font-size:16px;color:#c7d4e6;margin-top:6px}
 
-  /* 파일 추가/실행 메뉴 */
-  .file-bar{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:14px 18px;
-    margin-bottom:18px;
-    box-shadow:0 2px 10px rgba(28,43,74,0.05);
-  }
-  .file-controls{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-  .file-btn, .run-btn, .reset-btn{
-    font-family:inherit; font-size:12.5px; font-weight:700;
-    border-radius:8px; padding:8px 14px; cursor:pointer; border:none;
-  }
-  .file-btn{ background:var(--accent-soft); color:var(--accent); }
-  .file-btn:hover{ background:#dde9ff; }
-  .run-btn{ background:var(--accent); color:#fff; }
-  .run-btn:disabled{ background:var(--border); color:var(--muted); cursor:not-allowed; }
-  .run-btn:not(:disabled):hover{ background:#2159c9; }
-  .reset-btn{ background:#fff; color:var(--muted); border:1px solid var(--border) !important; }
-  .reset-btn:hover{ color:var(--navy-soft); border-color:var(--navy-soft) !important; }
-  .file-hint{ font-size:11px; color:var(--muted); margin-left:2px; }
-  .file-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-  .file-chip{
-    display:flex; align-items:center; gap:8px;
-    background:var(--accent-soft); color:var(--navy-soft);
-    font-size:11.5px; font-weight:600;
-    padding:6px 10px; border-radius:20px;
-  }
-  .file-chip.applied{ background:var(--safe-soft); color:#1f8a53; }
-  .file-chip.error{ background:var(--danger-soft); color:var(--danger); }
-  .file-chip .chip-x{
-    cursor:pointer; font-weight:800; color:var(--muted); line-height:1;
-    width:14px; height:14px; display:flex; align-items:center; justify-content:center;
-  }
-  .file-chip .chip-x:hover{ color:var(--danger); }
-  .file-chip .chip-name{ white-space:nowrap; }
-  .file-chip .chip-loc{
-    font-family:inherit; font-size:11.5px; font-weight:600; color:var(--navy-soft);
-    background:#ffffffa0; border:1px solid transparent; border-radius:10px;
-    padding:2px 8px; width:110px;
-  }
-  .file-chip .chip-loc::placeholder{ color:#9aa8bf; font-weight:500; }
-  .file-chip .chip-loc:focus{ outline:none; border-color:var(--accent); background:#fff; }
-  .file-status{ font-size:11.5px; color:var(--muted); margin-top:8px; min-height:14px; }
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 20px}
+.kpi .label{font-size:15px;color:var(--sub);font-weight:600}
+.kpi .value{font-size:36px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .value small{font-size:18px;font-weight:700;margin-left:2px}
+.kpi .note{font-size:14px;color:var(--sub);margin-top:4px}
+.kpi.red .value{color:var(--danger)}
 
-  /* 임계값 설정 / 시간 재생 / 내보내기 도구모음 */
-  .tools-bar{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:14px 18px;
-    margin-bottom:18px;
-    box-shadow:0 2px 10px rgba(28,43,74,0.05);
-    display:flex;
-    align-items:flex-start;
-    gap:24px;
-    flex-wrap:wrap;
-  }
-  .tool-group{ display:flex; flex-direction:column; gap:6px; }
-  .tool-group[hidden]{ display:none; }
-  .tool-group.grow{ flex:1; min-width:220px; }
-  .tool-label{ font-size:11px; color:var(--muted); font-weight:700; }
-  .tool-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .tool-row label{ font-size:11.5px; color:var(--navy-soft); font-weight:600; display:flex; align-items:center; gap:4px; }
-  .th-input{
-    width:56px; font-family:inherit; font-size:12px; font-weight:700; color:var(--navy);
-    border:1px solid var(--border); border-radius:6px; padding:4px 6px;
-  }
-  .time-slider{ flex:1; min-width:160px; accent-color:var(--accent); }
-  .time-slider:disabled{ opacity:0.4; }
-  #timeLabel{ color:var(--navy); font-weight:800; }
-  .export-btn{ background:var(--navy); white-space:nowrap; }
-  .export-btn:hover{ background:var(--navy-soft); }
-  .status-dot.blue{ background:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+.years-card{margin-bottom:16px}
+.years-head{display:flex;justify-content:space-between;align-items:baseline;gap:4px 16px;flex-wrap:wrap}
+.years-head .hint{margin:0 0 10px}
+.years-wrap{overflow-x:auto}
+.years{width:100%;border-collapse:collapse;font-size:15px;font-variant-numeric:tabular-nums}
+.years th,.years td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+.years thead th{font-size:13px;color:var(--sub);font-weight:700;background:#f7f9fb}
+.years th:first-child{text-align:left}
+.years tbody th{font-weight:800}
+.years tbody tr{cursor:pointer}
+.years tbody tr:hover{background:#f7f9fb}
+.years tbody tr.on{background:#eef3fa}
+.years tbody tr.on th{box-shadow:inset 4px 0 0 var(--navy)}
+.years .risk{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+.years .risk .bar{width:90px;height:10px}
+.years .risk b{min-width:40px;font-weight:800}
+.years .hot{color:var(--danger)}
+.years-note{margin:10px 0 0;font-size:13px;color:var(--sub)}
+.main{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(340px,1fr);gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h2{margin:0 0 4px;font-size:19px;font-weight:800}
+.card .hint{font-size:14px;color:var(--sub);margin:0 0 12px}
+.map-card{padding:0;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.map-head{padding:16px 20px 12px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+#map{flex:1;min-height:560px}
+.leaflet-tile-pane{filter:grayscale(.75) brightness(1.04) contrast(.95)}
+.legend{display:flex;gap:16px;font-size:15px;font-weight:600;color:var(--sub);flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:22px;height:6px;border-radius:3px;margin-right:6px;vertical-align:middle;background:var(--c)}
 
-  @media print{
-    .file-bar, .tools-bar, .leaflet-control-layers, .leaflet-control-zoom{ display:none !important; }
-    .page{ max-width:100%; padding:0; }
-  }
+.side{display:flex;flex-direction:column;gap:16px}
+.days{display:flex;flex-direction:column;gap:8px}
+button.day{display:grid;grid-template-columns:150px 1fr 52px;align-items:center;gap:12px;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;font:inherit;text-align:left;color:inherit}
+button.day:hover{border-color:#b6c2d2}
+button.day.active{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy) inset}
+.day .d{font-size:16px;font-weight:700}
+.day .t{font-size:13px;color:var(--sub);margin-top:2px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:4px;vertical-align:1px}
+.tag.dawn{background:#fee2e2;color:#991b1b}
+.tag.eve{background:#e0e7ef;color:#334155}
+.tag.day{background:#fef3c7;color:#92400e}
+.bar{height:16px;border-radius:5px;background:#eef1f5;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.pct{font-size:18px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
 
-  .dashboard{
-    display:grid;
-    grid-template-columns: 380px 1fr;
-    gap:18px;
-    align-items:stretch;
-  }
+.spots{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.spot{display:flex;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.spot:hover{border-color:#b6c2d2}
+.num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--danger);color:#fff;font-weight:800;
+  display:flex;align-items:center;justify-content:center;font-size:15px}
+.spot .m{font-size:16px;font-weight:700}
+.spot .s{font-size:13px;color:var(--sub);margin-top:2px}
+.empty{font-size:15px;color:var(--sub);padding:8px 2px}
+.pin{width:30px;height:30px;border-radius:50%;background:var(--danger);color:#fff;font-weight:800;font-size:15px;
+  display:flex;align-items:center;justify-content:center;border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.35)}
 
-  .card{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:18px 18px 20px 18px;
-    box-shadow:0 2px 10px rgba(28,43,74,0.05);
-  }
+footer{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--sub);margin-top:14px;line-height:1.6}
+footer a{color:var(--navy);font-weight:700}
 
-  .card-head{
-    display:flex; align-items:center; gap:8px; margin-bottom:14px;
-  }
-  .card-head.sub{ margin-top:22px; }
-  .head-bar{ width:4px; height:16px; background:var(--navy); border-radius:2px; flex-shrink:0; }
-  .card-head h2{ font-size:14.5px; font-weight:800; margin:0; color:var(--navy); }
-  .head-meta{ margin-left:auto; font-size:11.5px; color:var(--muted); font-weight:600; }
-
-  /* 좌측: 관측 데이터 테이블 */
-  table.info-table{ width:100%; border-collapse:collapse; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
-  table.info-table thead th{
-    background:var(--accent-soft); color:var(--navy-soft);
-    font-size:11.5px; font-weight:700; padding:8px 4px; border-bottom:1px solid var(--border);
-  }
-  table.info-table td{
-    text-align:center; vertical-align:top; padding:16px 8px;
-    border-right:1px solid var(--border);
-  }
-  table.info-table td:last-child{ border-right:none; }
-  .temp-icon{ font-size:20px; margin-bottom:4px; }
-  .temp-value{ font-size:26px; font-weight:800; color:var(--navy); line-height:1.1; }
-  .risk-value{ font-size:26px; font-weight:800; color:var(--risk); line-height:1.1; }
-  .temp-sub{ font-size:11px; color:var(--muted); margin-top:4px; }
-  .info-cell ul{ list-style:none; margin:0; padding:0; text-align:left; }
-  .info-cell li{ font-size:11.5px; color:var(--navy-soft); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
-  .info-cell li b{ margin-left:auto; color:var(--navy); font-size:12px; }
-  .dot{ width:7px;height:7px;border-radius:50%; flex-shrink:0; }
-  .dot.blue{ background:var(--accent); }
-  .dot.green{ background:var(--safe); }
-  .dot.red{ background:var(--danger); }
-  .dot.orange{ background:var(--warn); }
-
-  /* 위험기상정보 스타일 4열 상태표 */
-  table.status-table{ width:100%; border-collapse:collapse; table-layout:fixed; }
-  table.status-table td{
-    text-align:center; padding:10px 4px; border:1px solid var(--border); vertical-align:top;
-  }
-  .status-label{ font-size:11px; color:var(--muted); font-weight:700; margin-bottom:8px; }
-  .status-dot{ width:14px; height:14px; border-radius:50%; margin:0 auto 6px auto; }
-  .status-dot.green{ background:var(--safe); box-shadow:0 0 0 4px var(--safe-soft); }
-  .status-dot.orange{ background:var(--warn); box-shadow:0 0 0 4px var(--warn-soft); }
-  .status-dot.red{ background:var(--danger); box-shadow:0 0 0 4px var(--danger-soft); }
-  .status-dot.risk{ background:var(--risk); box-shadow:0 0 0 4px var(--risk-soft); }
-  .status-text{ font-size:12.5px; font-weight:800; color:var(--navy); }
-  .status-sub{ font-size:10.5px; color:var(--muted); margin-top:3px; }
-
-  /* 우측: 지도 카드 */
-  .right-card{ display:flex; flex-direction:column; min-height:640px; }
-  #mapWrap{ position:relative; flex:1; border-radius:10px; overflow:hidden; border:1px solid var(--border); }
-  #map{ width:100%; height:100%; min-height:600px; }
-
-  .map-legend{
-    position:absolute; left:12px; bottom:12px; z-index:500;
-    background:rgba(255,255,255,0.95);
-    border:1px solid var(--border);
-    border-radius:10px;
-    padding:10px 12px;
-    font-size:11px;
-    color:var(--navy-soft);
-    box-shadow:0 2px 8px rgba(0,0,0,0.12);
-    max-width:180px;
-  }
-  .map-legend .lg-title{ font-weight:800; color:var(--navy); margin-bottom:6px; font-size:11.5px; }
-  .legend-bar{
-    height:8px; border-radius:4px;
-    background:linear-gradient(to right, #1e3a8a, #2563eb, #60a5fa, #bae6fd, #cbd5e1, #94a3b8);
-    margin-bottom:4px;
-  }
-  .legend-scale{ display:flex; justify-content:space-between; font-size:9.5px; color:var(--muted); margin-bottom:8px; }
-  .legend-row{ display:flex; align-items:center; gap:6px; margin-top:4px; }
-  .legend-dot{ width:10px; height:10px; border-radius:50%; background:var(--risk); border:2px solid #fff; box-shadow:0 0 0 1px var(--risk); flex-shrink:0; }
-
-  .popup-title{ font-weight:800; margin-bottom:4px; color:var(--navy); font-size:13px; }
-  .popup-row{ font-size:11.5px; color:var(--navy-soft); margin-bottom:2px; }
-  .popup-sat{ width:100%; height:140px; border-radius:8px; overflow:hidden; background:#e6e9f0; }
-  .popup-sat .leaflet-control-attribution{ display:none; }
-  .leaflet-popup-content-wrapper{ border-radius:10px; }
-  .leaflet-control-layers{
-    border-radius:10px !important;
-    border:1px solid var(--border) !important;
-    box-shadow:0 2px 8px rgba(0,0,0,0.12) !important;
-    font-family:inherit;
-    padding:6px 10px !important;
-  }
-  .leaflet-control-layers label{
-    font-size:12.5px; color:var(--navy-soft); font-weight:600;
-  }
-
-  @media (max-width:920px){
-    .dashboard{ grid-template-columns:1fr; }
-    .right-card{ min-height:420px; }
-  }
+@media (max-width:1100px){
+  .main{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  #map{min-height:440px}
+}
+/* 휴대폰: 화물연대 등 현장 관계자가 주로 보는 화면 */
+@media (max-width:600px){
+  .wrap{padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
+  header{margin-bottom:12px;gap:12px}
+  .eyebrow{font-size:12px}
+  h1{font-size:22px;line-height:1.3}
+  .roads{width:100%}
+  .roads button{flex:1 1 40%;padding:12px 8px}
+  .headline{padding:16px 18px;border-radius:14px;margin-bottom:12px}
+  .headline .big{font-size:20px}
+  .headline .small{font-size:14px;line-height:1.5}
+  .kpis{gap:10px;margin-bottom:12px}
+  .kpi{padding:12px 14px;border-radius:12px}
+  .kpi .label{font-size:13px;line-height:1.35;word-break:keep-all}
+  .kpi .value{font-size:26px;margin-top:4px}
+  .kpi .value small{font-size:15px}
+  .kpi .note{font-size:12px;line-height:1.45}
+  .years{font-size:13px}
+  .years th,.years td{padding:9px 6px}
+  .years .opt{display:none}
+  .years .risk .bar{display:none}
+  .years .risk b{min-width:34px}
+  .years-note{font-size:12px}
+  .main,.side{gap:12px}
+  .card{padding:16px}
+  .card.map-card{padding:0}
+  .card h2{font-size:17px}
+  .card .hint{font-size:13px;line-height:1.5}
+  .map-head{padding:14px 16px 10px}
+  .legend{gap:6px 12px;font-size:13px}
+  .legend span::before{width:16px}
+  #map{min-height:0;height:min(62vh,420px);flex:none}
+  /* 날짜 · 비율 한 줄, 막대는 아래 전체 폭으로 */
+  button.day{grid-template-columns:1fr auto;grid-template-areas:"info pct" "bar bar";gap:8px 12px;padding:12px 14px}
+  .day > div:first-child{grid-area:info}
+  .day .bar{grid-area:bar;height:10px}
+  .day .pct{grid-area:pct;font-size:20px}
+  .spot{padding:12px}
+  .spot .m{font-size:15px}
+  footer{font-size:12px;flex-direction:column;gap:10px}
+  footer a{display:inline-block;padding:6px 0}
+}
+@media print{
+  body{background:#fff}
+  .roads{display:none}
+}
 </style>
-<link rel="stylesheet" href="dashboard.css?v=20261013-3">
 </head>
 <body>
-<div class="page">
+<div class="wrap">
+  <header>
+    <div>
+      <div class="eyebrow">도로 기상 이동관측 · 겨울철 노면결빙 브리핑</div>
+      <h1 id="title">-</h1>
+    </div>
+    <div class="roads" id="roads" role="group" aria-label="노선 선택">
+    </div>
+  </header>
 
-  <div class="top-bar">
-    <div class="brand">
-      <span class="brand-badge"></span>
-      <div>
-        <div class="brand-title" id="brandTitle">도로결빙 구간 관측 현황</div>
-        <div class="brand-sub" id="brandSub">강진 구간 · 지면(노면)온도 센서 이동관측</div>
-      </div>
+  <section class="headline">
+    <div>
+      <div class="big" id="headBig">-</div>
+      <div class="small" id="headSmall">-</div>
     </div>
-    <div class="mode-toggle" id="modeToggle">
-      <button class="mode-btn active" data-mode="icing" type="button">❄️ 결빙</button>
-      <button class="mode-btn" data-mode="heat" type="button">🔥 폭염</button>
-    </div>
-    <div class="update-time" id="updateTime">관측시각 -</div>
-  </div>
-
-  <section class="road-menu" aria-label="관측 연도와 관측 자료 선택">
-    <div class="menu-line">
-      <strong class="section-label">관측 연도</strong>
-      <div class="year-buttons" id="yearMenu" role="group" aria-label="관측 연도"></div>
-      <button type="button" class="add-target-btn" id="addTargetBtn">+ 관측 자료 추가</button>
-    </div>
-    <div class="menu-line">
-      <strong class="section-label">관측 자료</strong>
-      <div class="road-buttons" id="roadMenu"></div>
-    </div>
-    <div class="archive-note" id="archiveNote">2025년 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.</div>
   </section>
 
-  <section class="card year-card" id="yearCard" aria-label="연도별 분석">
-    <div class="card-head"><span class="head-bar"></span><h2 id="yearTitle">연도별 분석</h2><span class="head-meta" id="yearMeta">-</span></div>
-    <div class="year-kpis" id="yearKpis"></div>
-    <div class="year-table-wrap"><table class="year-table" id="yearTable"></table></div>
-    <p class="year-note" id="yearNote"></p>
+  <section class="kpis">
+    <div class="kpi red"><div class="label">새벽 관측 시 결빙주의·위험 비율</div><div class="value" id="kDawn">-</div><div class="note" id="kDawnNote"></div></div>
+    <div class="kpi red"><div class="label">가장 길게 이어진 결빙위험 구간</div><div class="value" id="kLong">-</div><div class="note" id="kLongNote"></div></div>
+    <div class="kpi"><div class="label">최저 노면온도</div><div class="value" id="kMin">-</div><div class="note" id="kMinNote"></div></div>
+    <div class="kpi"><div class="label">실제 주행 관측</div><div class="value" id="kRuns">-</div><div class="note" id="kRunsNote"></div></div>
   </section>
 
-  <section class="route-visibility" id="routeVisibilitySection" hidden aria-label="표시할 관측일 선택">
-    <div class="rv-head">
-      <strong class="section-label">표시할 관측일 선택</strong>
-      <span class="rv-actions">
-        <button type="button" class="rv-link" id="rvShowAll">전체 보기</button>
-        <button type="button" class="rv-link" id="rvHideAll">전체 숨기기</button>
-      </span>
+  <section class="card years-card" id="yearsCard">
+    <div class="years-head">
+      <h2>연도별 비교</h2>
+      <p class="hint">그해 모든 주행의 관측 지점 기준 · 행을 누르면 그 연도로 바뀝니다</p>
     </div>
-    <div class="rv-list" id="routeVisibilityList"></div>
+    <div class="years-wrap"><table class="years" id="years"></table></div>
+    <p class="years-note">연도마다 주행 시간대가 다릅니다. 낮 주행이 많은 해는 비율이 낮게 나오므로 '새벽 주행 시' 값을 함께 보세요.</p>
   </section>
 
-  <section class="card trend-card" aria-label="관측일별 위험구간 위치">
-    <div class="card-head"><span class="head-bar"></span><h2>관측일별 위험구간 위치</h2><span class="head-meta">같은 도로 위치끼리 비교 · 위험·주의 칸을 누르면 지도로 이동</span></div>
-    <div id="trendChart" class="trend-chart-wrap"></div>
-  </section>
-
-  <div class="dashboard">
-    <aside class="card left-card">
-      <div class="card-head"><span class="head-bar"></span><h2>관측 요약</h2></div>
-      <div class="head-meta" id="obsMeta">-</div>
-      <dl class="summary-metrics">
-        <div><dt>평균온도</dt><dd id="curAvgTemp">-</dd></div>
-        <div><dt>표시 관측점</dt><dd id="curTotal">-</dd></div>
-        <div><dt id="curDistanceLabel">관측거리</dt><dd id="curDistance">-</dd></div>
-        <div><dt>이동경로</dt><dd id="curRouteCount">-</dd></div>
-        <div><dt>수집 주기(추정)</dt><dd id="curInterval">-</dd></div>
-        <div><dt>관측 기간</dt><dd id="curDuration">-</dd></div>
-      </dl>
-      <div class="card-head sub"><span class="head-bar"></span><h2>판정 현황</h2></div>
-      <table class="status-table"><tbody><tr id="statusRow"></tr></tbody></table>
-      <div class="method-note"><strong>관측자료 해석</strong><p>위험구간은 설정한 온도 또는 마찰계수 기준에 해당하는 연속 관측점입니다. 실제 결빙 확인 여부와 구분해 해석하세요.</p><p>지도는 기록된 GPS 위치를 연결합니다. 도로와의 정확한 일치 여부는 별도 확인이 필요합니다.</p></div>
-    </aside>
-
-    <!-- 오른쪽: 지도 -->
-    <div class="card right-card">
-      <div class="card-head">
-        <span class="head-bar"></span>
-        <h2>노선별 관측 분포</h2>
-        <span class="head-meta">위험구간을 누르면 상세정보</span>
-      </div>
-      <div id="mapWrap">
-        <div id="map"></div>
-        <div class="map-legend">
-          <div class="lg-title" id="legendTitle">노면온도</div>
-          <div class="legend-bar" id="legendBar"></div>
-          <div class="legend-scale" id="legendScale"><span>-3℃</span><span>1℃</span><span>5℃+</span></div>
-          <div class="legend-row"><span class="legend-dot" id="legendDot"></span><span id="legendRiskLabel">결빙 위험구간</span></div>
-          <div class="legend-row"><span class="legend-dot" id="legendCautionDot" style="background:#f0a93e;box-shadow:0 0 0 1px #f0a93e;"></span><span id="legendCautionLabel">결빙 주의구간</span></div>
+  <section class="main">
+    <div class="card map-card">
+      <div class="map-head">
+        <div>
+          <h2 id="mapTitle">-</h2>
+        </div>
+        <div class="legend">
+          <span style="--c:var(--danger)">결빙위험 (노면 −1℃ 이하)</span>
+          <span style="--c:var(--caution)">결빙주의 (노면 1℃ 이하)</span>
+          <span style="--c:var(--normal)">해당 없음</span>
         </div>
       </div>
+      <div id="map"></div>
     </div>
-  </div>
 
-
-  <details class="settings"><summary>추가 기능 <span>시간 재생 · 인쇄 · 분석 설정 · 파일 관리</span></summary><div class="settings-body">  <div class="tools-bar">
-    <div class="tool-group grow">
-      <div class="tool-label">관측 진행 재생 <span id="timeLabel">-</span></div>
-      <div class="tool-row">
-        <input type="range" id="timeSlider" class="time-slider" min="0" max="100" value="100" disabled>
-        <button class="reset-btn" id="playBtn">▶ 재생</button>
+    <div class="side">
+      <div class="card">
+        <h2>주행별 결빙주의·위험 비율</h2>
+        <p class="hint">새벽 주행의 비율이 높습니다 · 주행을 누르면 지도가 바뀝니다</p>
+        <div class="days" id="days"></div>
+      </div>
+      <div class="card">
+        <h2 id="spotTitle">결빙위험 구간</h2>
+        <p class="hint">선택한 날 노면 −1℃ 이하가 이어진 구간 · 누르면 지도에서 확대</p>
+        <ul class="spots" id="spots"></ul>
       </div>
     </div>
-    <div class="tool-group">
-      <div class="tool-label">&nbsp;</div>
-      <button class="run-btn export-btn" id="exportBtn">인쇄 / PDF</button>
-    </div>
-  </div>
+  </section>
 
-    <div class="tool-group" id="icingThresholds">
-      <div class="tool-label">임계값 설정 (결빙)</div>
-      <div class="tool-row">
-        <label>위험 노면온도 ≤ <input type="number" id="thDangerTemp" class="th-input" step="0.1" value="-1">℃</label>
-        <label>주의 노면온도 ≤ <input type="number" id="thCautionTemp" class="th-input" step="0.1" value="1">℃</label>
-        <label>위험 마찰계수 ≤ <input type="number" id="thFriction" class="th-input" step="0.05" value="0.3"></label>
-      </div>
+  <footer>
+    <div>
+      판정 기준: 결빙위험 = 노면온도 −1℃ 이하 또는 마찰계수 0.3 이하 · 결빙주의 = 노면온도 1℃ 이하<br>
+      과거 관측자료입니다. 현재 도로 상태나 예보가 아니며, 기준 해당이 실제 결빙 확인을 뜻하지는 않습니다. 지도는 기록된 GPS 위치를 연결한 것입니다.
     </div>
-    <div class="tool-group" id="heatThresholds" hidden>
-      <div class="tool-label">임계값 설정 (폭염)</div>
-      <div class="tool-row">
-        <label>주의 기온 ≥ <input type="number" id="thHeatCaution" class="th-input" step="0.5" value="33">℃</label>
-        <label>위험 기온 ≥ <input type="number" id="thHeatDanger" class="th-input" step="0.5" value="35">℃</label>
-      </div>
-    </div>
-    <div class="tool-group" id="hourFilterGroup">
-      <div class="tool-label">시간대 필터</div>
-      <div class="tool-row">
-        <label><input type="checkbox" id="hourFilterToggle"> 특정 시간대만 표시(예: 새벽)</label>
-        <label><input type="number" id="hourFilterStart" class="th-input" min="0" max="23" step="1" value="0">시 ~ <input type="number" id="hourFilterEnd" class="th-input" min="0" max="23" step="1" value="6">시</label>
-      </div>
-    </div>
-  <div class="file-bar">
-    <div class="file-controls">
-      <label class="file-btn" for="fileInput">+ 관측파일 추가</label>
-      <input type="file" id="fileInput" accept=".txt,.csv,.xlsx" multiple style="display:none" />
-      <label class="file-btn" for="folderInput">+ 폴더째 추가</label>
-      <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none" />
-      <button class="run-btn" id="runBtn" disabled>실행</button>
-      <button class="reset-btn" id="resetBtn">초기화(내장자료)</button>
-      <span class="file-hint">txt · csv · xlsx 관측파일을 추가하고 관측 자료 이름을 적은 뒤 실행을 누르세요 · 폴더째 추가하면 폴더명(예: 2023)이 이름으로 자동 입력됩니다 · 연도는 파일 날짜로 자동 구분 · 같은 날 aws가 있는 real 파일과 겹치는 누적 자료는 자동 제외</span>
-    </div>
-    <div class="target-row" id="targetRow" hidden>
-      <label for="targetInput">관측 자료 이름</label>
-      <input type="text" id="targetInput" placeholder="예: 2026 또는 27번국도(곡성~고흥)" autocomplete="off">
-      <span class="file-hint">입력하면 아래 모든 파일에 적용됩니다 · 파일마다 다르게 적어도 됩니다 · 연도는 파일 날짜로 나뉘고, 이 이름으로 '관측 자료' 버튼이 생깁니다</span>
-    </div>
-    <div class="file-chips" id="fileChips"></div>
-    <div class="file-status" id="fileStatus"></div>
-  </div>
-
-</div></details>
-  <footer class="page-footer">도로 기상 이동관측 · 과거 관측 사례 검토용 <span>화면 개편 · 2026.09</span></footer>
-
+    <div><a href="analysis.html">상세 분석 화면 →</a></div>
+  </footer>
 </div>
 
 <script src="road-observations.js?v=84920eccab"></script>
 <script src="observation-targets.js?v=4"></script>
 <script>
+/* ---------- 판정 기준 (상세 화면 analysis.html 기본값과 동일) ---------- */
+const DANGER_ROAD_TEMP = -1;
+const CAUTION_ROAD_TEMP = 1;
+const DANGER_FRICTION = 0.3;
+const MAX_PLAUSIBLE_KMH = 200;
+const MAX_GAP_MINUTES = 5;
 
-/* ---------- 색상 유틸 ---------- */
-// 결빙 모드: 저온(진한 파랑) -> 고온(회색) - 노면온도 색상 스케일
-const ICE_STOPS = [
-  [-3.0, [30, 58, 138]],
-  [-1.0, [37, 99, 235]],
-  [ 0.0, [96, 165, 250]],
-  [ 1.0, [186, 230, 253]],
-  [ 3.0, [203, 213, 225]],
-  [ 5.2, [148, 163, 184]]
-];
-// 폭염 모드: 저온(파랑) -> 고온(빨강) - 기온 색상 스케일
-const HEAT_STOPS = [
-  [20.0, [79, 195, 247]],
-  [28.0, [155, 232, 155]],
-  [31.0, [255, 227, 138]],
-  [33.0, [255, 180, 84]],
-  [35.0, [255, 90, 95]],
-  [38.0, [179, 0, 27]]
-];
-
-function colorFromStops(t, stops){
-  if(t <= stops[0][0]) return rgb(stops[0][1]);
-  if(t >= stops[stops.length-1][0]) return rgb(stops[stops.length-1][1]);
-  for(let i=0;i<stops.length-1;i++){
-    const [t0,c0] = stops[i], [t1,c1] = stops[i+1];
-    if(t >= t0 && t <= t1){
-      const f = (t - t0) / (t1 - t0);
-      const c = c0.map((v,k) => Math.round(v + (c1[k]-v)*f));
-      return rgb(c);
-    }
-  }
-  return rgb(stops[0][1]);
-}
-function tempToColor(t){ return colorFromStops(t, ICE_STOPS); }
-// 현재 모드(결빙/폭염)에 맞는 색상 스케일 적용
-function colorFor(t){ return colorFromStops(t, MODE === 'heat' ? HEAT_STOPS : ICE_STOPS); }
-function riskColor(){ return MODE === 'heat' ? '#e6484f' : '#2563eb'; }
-// 주의구간 색상: 결빙 모드는 위험(파랑)과 뚜렷이 구분되도록 빨강, 폭염 모드는 위험(빨강)과 구분되도록 주황
-function cautionColor(){ return MODE === 'heat' ? '#f0a93e' : '#dc2626'; }
-// 클러스터/구간의 심각도에 맞는 색상 (위험: 모드별 강조색, 주의: cautionColor())
-function severityColor(sev){ return sev === 'danger' ? riskColor() : cautionColor(); }
-function rgb(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
-
-// 앞뒤 점 모두와 비현실적으로 먼 "튀는" 좌표(GPS 순간이동 왕복)는 단독 위험/주의 마커로 표시하지 않도록 정상 처리
-function markGpsOutliers(data){
-  return data.map((d, i) => {
-    const prev = data[i-1], next = data[i+1];
-    if(!prev || !next || d.r === 'normal') return d;
-    const distPrev = haversineKm([prev.la,prev.lo], [d.la,d.lo]);
-    const distNext = haversineKm([d.la,d.lo], [next.la,next.lo]);
-    if(isGpsGlitch(prev, d, distPrev) && isGpsGlitch(d, next, distNext)){
-      return { ...d, r: 'normal' };
-    }
-    return d;
-  });
-}
-
-/* ---------- 위험/주의구간 클러스터 ---------- */
-// 위험(danger) 또는 주의(caution) 판정을 받은 연속 관측점을 하나의 구간으로 묶는다.
-// 구간 내 위험 판정이 하나라도 있으면 그 구간 전체를 '위험'으로 표시한다.
-function buildRiskClusters(data){
-  const clusters = [];
-  let cur = null;
-  data.forEach(d => {
-    if(d.r === 'danger' || d.r === 'caution'){
-      if(cur && isGpsGlitch(cur[cur.length-1], d, haversineKm(
-        [cur[cur.length-1].la, cur[cur.length-1].lo], [d.la,d.lo]))){
-        clusters.push(cur);
-        cur = null;
-      }
-      if(!cur) cur = [];
-      cur.push(d);
-    } else {
-      if(cur){ clusters.push(cur); cur = null; }
-    }
-  });
-  if(cur) clusters.push(cur);
-  return clusters.map(pts => ({
-    points: pts,
-    severity: pts.some(p => p.r === 'danger') ? 'danger' : 'caution'
-  }));
-}
-
-function buildSparkline(temps, w, h){
-  const pad = 6;
-  const min = Math.min(...temps), max = Math.max(...temps);
-  const range = (max - min) || 1;
-  const stepX = temps.length > 1 ? (w - pad*2) / (temps.length - 1) : 0;
-  const pts = temps.map((t,i) => {
-    const x = pad + i*stepX;
-    const y = h - pad - ((t - min)/range) * (h - pad*2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  const areaPts = `${pad},${h-pad} ` + pts.join(' ') + ` ${w-pad},${h-pad}`;
-  return `
-    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-      <polygon points="${areaPts}" fill="${riskColor()}22"></polygon>
-      <polyline points="${pts.join(' ')}" fill="none" stroke="${riskColor()}" stroke-width="2"></polyline>
-    </svg>
-  `;
-}
-
-// 관측일별 "노선 위치 띠" 차트
-// 여러 날을 시간순으로 이어 붙인 선 그래프는 날짜 경계에서 값이 튀고 가로축이 의미가 없어서,
-// 모든 관측일을 같은 도로 위 위치(km)에 맞춰 한 줄씩 띠로 그린다.
-// → 같은 위치가 날마다(특히 새벽마다) 위험으로 칠해지는지, 즉 상습 결빙 지점을 바로 비교할 수 있다.
-const STRIP_SNAP_KM = 1.5;   // 기준 경로에서 이보다 먼 관측점(다른 길로 우회한 구간 등)은 띠에서 제외
-const PERIOD_LABEL = { dawn: '새벽', eve: '저녁', day: '낮' };
+// 관측 대상 메뉴는 미리 정하지 않고 내장자료의 target(관측 대상 이름)별로 만든다 (observation-targets.js)
+const GROUPS = groupObservationsByTarget(BUILTIN_OBSERVATIONS);
+const COLORS = { 2: '#dc2626', 1: '#f59e0b', 0: '#94a3b8' };
 const WEEKDAYS = ['일','월','화','수','목','금','토'];
-const SEV_RANK = { normal: 0, caution: 1, danger: 2 };
-let lastTrend = null; // 화면 폭이 바뀌면 같은 데이터로 다시 그리기 위해 보관
 
-// 띠 차트 거리축용 구간 거리: GPS가 순간적으로 수십 km 튄 구간(비현실적 속도)은 0으로 친다
-function stripStepKm(a, b){
-  const d = haversineKm([a.la, a.lo], [b.la, b.lo]);
-  const dtHr = Math.abs(parseTimeMs(b.t) - parseTimeMs(a.t)) / 3600000;
-  return dtHr > 0 && d / dtHr > MAX_PLAUSIBLE_KMH ? 0 : d;
-}
-
-function nearestVertex(ref, la, lo){
-  let best = -1, bestD = Infinity;
-  for(let i=0; i<ref.length; i++){
-    const d = haversineKm([la, lo], [ref[i].la, ref[i].lo]);
-    if(d < bestD){ bestD = d; best = i; }
-  }
-  return { i: best, d: bestD };
-}
-
-// 가로축 기준 경로: 다른 날 관측점을 충분히 덮는 경로 중 가장 짧은 것(왕복·우회가 없는 편도 주행)을 고른다.
-// 단순히 가장 많이 덮는 경로를 고르면 왕복+우회한 날(예: 1/3, 398km)이 뽑혀 가로축이 실제 노선 길이의 몇 배가 된다
-function pickReferenceRoute(routePts){
-  const cands = [];
-  routePts.forEach((cand, ci) => {
-    let covered = 0, total = 0;
-    routePts.forEach((other, oi) => {
-      if(oi === ci) return;
-      for(let k=0; k<other.pts.length; k += 3){ // 3개 중 1개만 표본으로 써도 비교에는 충분
-        total++;
-        if(nearestVertex(cand.pts, other.pts[k].la, other.pts[k].lo).d <= STRIP_SNAP_KM) covered++;
-      }
-    });
-    let len = 0;
-    for(let k=1; k<cand.pts.length; k++) len += stripStepKm(cand.pts[k-1], cand.pts[k]);
-    cands.push({ pts: cand.pts, score: total ? covered / total : 1, len });
-  });
-  if(!cands.length) return null;
-  const topScore = Math.max(...cands.map(c => c.score));
-  const ok = cands.filter(c => c.score >= topScore - 0.1);
-  return ok.reduce((a, b) => b.len < a.len ? b : a).pts;
-}
-
-function routeCoverage(pts, ref){
-  let total = 0, near = 0;
-  for(let k=0; k<pts.length; k += 3){
-    total++;
-    if(nearestVertex(ref, pts[k].la, pts[k].lo).d <= STRIP_SNAP_KM) near++;
-  }
-  return total ? near / total : 0;
-}
-
-function periodOf(ms){
-  const h = new Date(ms).getHours();
-  return (h >= 3 && h < 8) ? 'dawn' : (h >= 17 ? 'eve' : 'day');
-}
-function fmtMonthDay(ms){ const d = new Date(ms); return `${d.getMonth()+1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`; }
-
-// 위험·주의 지점을 누르면 그 시각과 가장 가까운 구간 마커로 지도를 옮기고 팝업을 연다
-function jumpToMapAt(timeStr){
-  const pMs = parseTimeMs(timeStr);
-  let best = null, bestDist = Infinity;
-  allClusterMarkers.forEach(c => {
-    const dist = pMs < c.startMs ? c.startMs - pMs : (pMs > c.endMs ? pMs - c.endMs : 0);
-    if(dist < bestDist){ bestDist = dist; best = c; }
-  });
-  if(!best) return;
-  document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
-  map.setView(best.marker.getLatLng(), Math.max(map.getZoom(), 13), { animate: true });
-  setTimeout(() => best.marker.openPopup(), 300);
-}
-
-// routePts: [{ route, pts }] (pts는 toRiskPoints + markGpsOutliers 결과)
-function renderTrendChart(container, routePts){
-  lastTrend = { container, routePts, width: container.clientWidth };
-  const usable = (routePts || []).filter(r => r.pts.length >= 2);
-  if(!usable.length){
-    container.innerHTML = '<div class="trend-empty">비교할 관측 경로가 부족합니다.</div>';
-    return;
-  }
-
-  // 한 관측 자료(예: 2025년)에 서로 다른 도로가 섞여 있으면, 같은 도로를 달린 주행끼리 묶어 블록을 따로 그린다
-  const corridors = [];
-  let remaining = usable.slice();
-  while(remaining.length){
-    const ref = pickReferenceRoute(remaining);
-    const members = remaining.filter(r => r.pts === ref || routeCoverage(r.pts, ref) >= 0.5);
-    corridors.push({ ref, members });
-    remaining = remaining.filter(r => !members.includes(r));
-  }
-  corridors.sort((a, b) => b.members.length - a.members.length);
-
-  // 0km는 기준 주행의 출발 쪽 끝이며, 관측 자료 이름이 "(A~B)" 형식이고 도로가 하나뿐이면 A·B를 양 끝에 표시
-  const location = (usable[0].route.location || '').trim();
-  const ends = corridors.length === 1 ? (location.match(/\(([^~()]+)~([^~()]+)\)/) || []).slice(1) : [];
-
-  const barW = Math.max(120, container.clientWidth - (container.clientWidth < 600 ? 120 : 170));
-  const nBins = Math.max(20, Math.min(120, Math.round(barW / 4)));
-  const rows = []; // 모든 블록의 행 (툴팁에서 data-r로 찾음)
-
-  const blocks = corridors.map(({ ref: refPts, members }) => {
-    const cum = [0];
-    for(let k=1; k<refPts.length; k++) cum.push(cum[k-1] + stripStepKm(refPts[k-1], refPts[k]));
-    const totalKm = cum[cum.length-1] || 1;
-    const binKm = totalKm / nBins;
-    const blockRows = members.map(({ route, pts }) => {
-      const bins = Array.from({ length: nBins }, () => null);
-      let counted = 0, risky = 0;
-      pts.forEach(p => {
-        const nv = nearestVertex(refPts, p.la, p.lo);
-        if(nv.d > STRIP_SNAP_KM) return;
-        counted++;
-        if(p.r !== 'normal') risky++;
-        const b = Math.min(nBins - 1, Math.floor(cum[nv.i] / binKm));
-        const cur = bins[b];
-        // 한 칸에 여러 점이 들어오면 가장 심한 판정, 같으면 더 극단적인 온도를 대표값으로
-        const worse = !cur || SEV_RANK[p.r] > SEV_RANK[cur.r] ||
-          (SEV_RANK[p.r] === SEV_RANK[cur.r] && (MODE === 'heat' ? p.te > cur.te : p.te < cur.te));
-        if(worse) bins[b] = p;
-      });
-      const startMs = parseTimeMs(route.rows[0].time);
-      return { bins, binKm, startMs, period: periodOf(startMs), pct: counted ? risky / counted * 100 : 0, counted };
-    }).filter(r => r.counted).sort((a, b) => a.startMs - b.startMs);
-    blockRows.forEach(r => { r.index = rows.length; rows.push(r); });
-    return { rows: blockRows, totalKm };
-  }).filter(b => b.rows.length);
-
-  const sevColor = { danger: riskColor(), caution: cautionColor() };
-  const NORMAL_COLOR = '#d6dee9';
-  const renderBlock = (block, bi) => {
-    const { totalKm } = block;
-    const ticks = [
-      { k: 0, text: (ends[0] ? ends[0] + ' ' : '') + '0km', cls: 'start' },
-      { k: totalKm / 2, text: `${Math.round(totalKm / 2)}km`, cls: 'mid' },
-      { k: totalKm, text: `${Math.round(totalKm)}km` + (ends[1] ? ' ' + ends[1] : ''), cls: 'end' }
-    ];
-    const first = block.rows[0], last = block.rows[block.rows.length - 1];
-    const head = blocks.length > 1
-      ? `<div class="strip-block-head">경로 ${bi + 1} · 같은 길 주행 ${block.rows.length}회 · ${fmtMonthDay(first.startMs)}${block.rows.length > 1 ? ' ~ ' + fmtMonthDay(last.startMs) : ''} · 약 ${Math.round(totalKm)}km</div>`
-      : '';
-    return `${head}
-      ${block.rows.map(r => `
-        <div class="strip-row">
-          <div class="strip-label"><b>${fmtMonthDay(r.startMs)}</b><span class="strip-tag ${r.period}">${PERIOD_LABEL[r.period]}</span></div>
-          <div class="strip-bar">${r.bins.map((p, b) => p
-            ? `<i data-r="${r.index}" data-b="${b}" style="background:${sevColor[p.r] || NORMAL_COLOR}"></i>`
-            : '<i class="strip-nodata"></i>').join('')}</div>
-          <div class="strip-pct"${r.pct >= 30 ? ` style="color:${riskColor()}"` : ''}>${Math.round(r.pct)}%</div>
-        </div>`).join('')}
-      <div class="strip-row strip-axis">
-        <div></div>
-        <div class="strip-ticks">${ticks.map(t => `<span class="${t.cls}" style="left:${(t.k / totalKm) * 100}%">${escapeAttr(t.text)}</span>`).join('')}</div>
-        <div class="strip-pct-head">위험+주의</div>
-      </div>`;
-  };
-
-  container.innerHTML = `
-    <div class="trend-legend">
-      <span class="trend-legend-chip"><i style="background:${riskColor()}"></i>위험</span>
-      <span class="trend-legend-chip"><i style="background:${cautionColor()}"></i>주의</span>
-      <span class="trend-legend-chip"><i style="background:${NORMAL_COLOR}"></i>정상</span>
-      <span class="trend-legend-chip"><i class="strip-nodata"></i>관측 없음</span>
-    </div>
-    <div class="strip-plot">
-      ${blocks.map(renderBlock).join('')}
-      <div class="trend-tooltip" id="trendTooltip" hidden></div>
-    </div>
-  `;
-
-  const plot = container.querySelector('.strip-plot');
-  const tooltip = container.querySelector('#trendTooltip');
-  const levelText = { danger: '위험', caution: '주의', normal: '정상' };
-  const valueLabel = MODE === 'heat' ? '기온' : '노면온도';
-  const fromLabel = ends[0] ? `${ends[0]}에서` : '기준점에서';
-
-  function binAt(target){
-    const el = target.closest && target.closest('.strip-bar i[data-r]');
-    if(!el) return null;
-    const r = rows[Number(el.dataset.r)], b = Number(el.dataset.b);
-    return { el, r, b, p: r.bins[b] };
-  }
-  function show({ el, r, b, p }){
-    const pr = plot.getBoundingClientRect(), er = el.getBoundingClientRect();
-    const leftPct = ((er.left + er.width/2 - pr.left) / pr.width) * 100;
-    tooltip.hidden = false;
-    tooltip.style.left = leftPct + '%';
-    tooltip.style.top = (er.top - pr.top) + 'px';
-    const tx = leftPct > 65 ? '-100%' : (leftPct < 35 ? '0' : '-50%');
-    tooltip.style.transform = `translate(${tx}, calc(-100% - 6px))`;
-    tooltip.innerHTML = `
-      <div class="trend-tooltip-time">${fmtMonthDay(r.startMs)} ${p.t.slice(11, 16)} · ${fromLabel} 약 ${Math.round((b + 0.5) * r.binKm)}km</div>
-      <div class="trend-tooltip-row"><span>${valueLabel}</span><b>${p.te.toFixed(1)}℃</b></div>
-      <div class="trend-tooltip-row"><span>판정</span><b style="color:${sevColor[p.r] || 'var(--safe)'}">${levelText[p.r]}</b></div>
-      ${p.r !== 'normal' ? '<div class="trend-tooltip-hint">누르면 지도에서 바로 봅니다</div>' : ''}
-    `;
-  }
-  plot.addEventListener('mousemove', e => { const h = binAt(e.target); if(h) show(h); else tooltip.hidden = true; });
-  plot.addEventListener('mouseleave', () => { tooltip.hidden = true; });
-  plot.addEventListener('click', e => {
-    const h = binAt(e.target);
-    if(!h){ tooltip.hidden = true; return; }
-    show(h);
-    if(h.p.r !== 'normal') jumpToMapAt(h.p.t);
-  });
-}
-
-let trendResizeTimer = null;
-window.addEventListener('resize', () => {
-  clearTimeout(trendResizeTimer);
-  trendResizeTimer = setTimeout(() => {
-    // 휴대폰 주소창이 접히며 생기는 높이 변화는 무시하고, 폭이 바뀔 때만 다시 그림
-    if(lastTrend && lastTrend.container.clientWidth !== lastTrend.width) renderTrendChart(lastTrend.container, lastTrend.routePts);
-  }, 150);
-});
-
-// 좁은 화면에서 팝업이 지도 밖으로 넘치지 않도록 폭/높이를 지도 크기에 맞춤
-function popupMaxWidth(base){ return Math.min(base, document.getElementById('map').clientWidth - 70); }
-function popupMaxHeight(base){ return Math.min(base, document.getElementById('map').clientHeight - 70); }
-
-/* ---------- 지도 초기화 (최초 1회) ---------- */
-const map = L.map('map', { zoomControl: true, preferCanvas: true, gestureHandling: L.Browser.mobile }).setView([36.3, 127.8], 7);
-// 좁은 화면에서는 팝업이 범례·레이어 버튼에 가려지므로, 팝업이 열린 동안 둘을 숨긴다(CSS: #mapWrap.popup-open)
-map.on('popupopen', () => document.getElementById('mapWrap').classList.add('popup-open'));
-map.on('popupclose', () => document.getElementById('mapWrap').classList.remove('popup-open'));
-
-// 키 발급 없이 바로 쓸 수 있는 Esri 위성/항공사진 타일 (위성 미니맵 + 지도 전체 위성모드에 공용)
-const SATELLITE_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-let satPopupSeq = 0;
-
-const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-const satelliteLayer = L.tileLayer(SATELLITE_TILE_URL, {
-  maxZoom: 19,
-  attribution: 'Tiles &copy; Esri'
-});
-
-let routeLayer = L.layerGroup().addTo(map); // 위험구간 강조선 + 마커
-let gradientLayer = L.layerGroup().addTo(map); // 노면온도 그라데이션 경로 (항상 표시)
-let lastBoundsLatLngs = []; // 가장 최근에 그려진 경로의 좌표 (레이아웃 확정 후 재조정용)
-let allClusterMarkers = []; // 온도 추이 그래프에서 클릭 시 지도로 이동하기 위한 {points, severity, marker} 목록
-
-// 카드 레이아웃이 자리잡은 뒤 지도 크기를 다시 계산해, 관측 구역 전체가 한 화면에 들어오도록 보정
-setTimeout(() => {
-  map.invalidateSize();
-  if(lastBoundsLatLngs.length) map.fitBounds(lastBoundsLatLngs, { padding: [24, 24] });
-}, 200);
-
-// 일반지도/위성지도 전환 + 모드별 위험구간 레이어 토글
-L.control.layers({
-  '일반지도': osmLayer,
-  '위성지도': satelliteLayer
-}, {
-  '위험구간 표시': routeLayer
-}, { position:'topleft', collapsed:true }).addTo(map);
-
-function statusColumn(label, dotClass, text, sub){
-  return `
-    <td>
-      <div class="status-label">${label}</div>
-      <div class="status-dot ${dotClass}"></div>
-      <div class="status-text">${text}</div>
-      <div class="status-sub">${sub}</div>
-    </td>
-  `;
-}
-
-/* ==================================================================
-   결빙/폭염 모드 + 위험 판정 임계값 - 상단 패널에서 조절하면 즉시 재계산됨
-   ================================================================== */
-let MODE = 'icing';          // 'icing' | 'heat'
-let DANGER_ROAD_TEMP = -1;   // [결빙] 노면온도 이 값 이하 -> 위험
-let CAUTION_ROAD_TEMP = 1;   // [결빙] 노면온도 이 값 이하 -> 주의
-let DANGER_FRICTION = 0.3;   // [결빙] 마찰계수 이 값 이하 -> 위험(미끄러움)
-let HEAT_CAUTION_TEMP = 33;  // [폭염] 기온 이 값 이상 -> 주의
-let HEAT_DANGER_TEMP = 35;   // [폭염] 기온 이 값 이상 -> 위험
-
-/* ==================================================================
-   파일 추가/실행 메뉴 - 관측소(지점) txt 파일을 불러와 대시보드 갱신
-   ================================================================== */
-
-let pendingFiles = [];  // [{id, name, data(ArrayBuffer), location}]
-let fileSeq = 0;
-
-const fileInput = document.getElementById('fileInput');
-const folderInput = document.getElementById('folderInput');
-const runBtn = document.getElementById('runBtn');
-const resetBtn = document.getElementById('resetBtn');
-const fileChipsEl = document.getElementById('fileChips');
-const fileStatusEl = document.getElementById('fileStatus');
-
-// 파일명·폴더명 등 사용자 입력을 HTML 속성/본문에 넣을 때 사용
-function escapeAttr(s){
-  return String(s || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function renderFileChips(){
-  fileChipsEl.innerHTML = pendingFiles.map(f => `
-    <span class="file-chip" data-id="${f.id}">
-      <span class="chip-name">${escapeAttr(f.name)}</span>
-      <input type="text" class="chip-loc" data-loc="${f.id}" placeholder="관측 자료 이름" value="${escapeAttr(f.location)}">
-      <span class="chip-x" data-remove="${f.id}">✕</span>
-    </span>
-  `).join('');
-  runBtn.disabled = pendingFiles.length === 0;
-  targetRow.hidden = pendingFiles.length === 0;
-}
-
-// 관측 대상 이름: 한 번 입력하면 모든 파일에 적용 (파일별 칸에서 따로 고칠 수도 있음)
-const targetRow = document.getElementById('targetRow');
-const targetInput = document.getElementById('targetInput');
-targetInput.addEventListener('input', () => {
-  pendingFiles.forEach(f => { f.location = targetInput.value; });
-  fileChipsEl.querySelectorAll('.chip-loc').forEach(el => { el.value = targetInput.value; });
-});
-
-fileChipsEl.addEventListener('click', (e) => {
-  const id = e.target.getAttribute('data-remove');
-  if(id){
-    pendingFiles = pendingFiles.filter(f => String(f.id) !== id);
-    renderFileChips();
-    fileStatusEl.textContent = pendingFiles.length ? '파일이 추가되었습니다. 실행 버튼을 눌러 반영하세요.' : '';
-  }
-});
-
-// 지점명/지역 입력은 칩을 다시 그리지 않고 값만 갱신 (입력 중 포커스 유지)
-fileChipsEl.addEventListener('input', (e) => {
-  const id = e.target.getAttribute('data-loc');
-  if(id){
-    const f = pendingFiles.find(p => String(p.id) === id);
-    if(f) f.location = e.target.value;
-  }
-});
-
-const OBS_FILE_RE = /\.(txt|csv|xlsx)$/i;
-
-// xlsx 압축 해제(브라우저 내장 DecompressionStream)
-async function browserInflateRaw(bytes){
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-
-fileInput.addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []).filter(f => OBS_FILE_RE.test(f.name));
-  for(const f of files){
-    pendingFiles.push({ id: ++fileSeq, name: f.name, data: await f.arrayBuffer(), location: targetInput.value || '' });
-  }
-  fileInput.value = '';
-  renderFileChips();
-  fileStatusEl.textContent = pendingFiles.length ? '파일이 추가되었습니다. 관측 자료 이름을 확인하고 실행 버튼을 눌러 반영하세요.' : '';
-});
-
-// 폴더째 추가: 고른 폴더(예: 2023)의 하위 폴더까지 읽고, 폴더명을 관측 자료 이름으로 자동 입력.
-// aws_1분처럼 상위 폴더를 고르면 그 안의 폴더(2023, 2024 …)별로 나눈다 - build-observations.cjs와 같은 규칙
-folderInput.addEventListener('change', async (e) => {
-  const files = Array.from(e.target.files || []).filter(f => OBS_FILE_RE.test(f.name));
-  const parts = files.map(f => (f.webkitRelativePath || f.name).split('/'));
-  const rootHasFiles = parts.some(p => p.length === 2);
-  for(let i = 0; i < files.length; i++){
-    const p = parts[i];
-    const target = rootHasFiles ? p[0] : (p.length >= 3 ? p[1] : p[0]);
-    pendingFiles.push({ id: ++fileSeq, name: files[i].name, data: await files[i].arrayBuffer(), location: target || '' });
-  }
-  folderInput.value = '';
-  renderFileChips();
-  fileStatusEl.textContent = pendingFiles.length ? `폴더에서 ${files.length}개 파일이 추가되었습니다. 실행 버튼을 눌러 반영하세요.` : '';
-});
-
-resetBtn.addEventListener('click', () => { location.reload(); });
-
-// txt 한 줄을 관측소 데이터 객체로 파싱 (지점_real / 지점_aws 공통 포맷)
-function parseStationLine(line){
-  const parts = line.split(',');
-  if(parts.length < 21) return null;
-  const time = (parts[0] || '').trim();
-  const site = (parts[1] || '').trim();
-  if(!time || !site || time === '*' || site === '*') return null;
-
-  const latIntStr = (parts[8] || '').trim();
-  const latDecStr = (parts[9] || '').trim();
-  const lonIntStr = (parts[10] || '').trim();
-  const lonDecStr = (parts[11] || '').trim();
-  if(!latIntStr || !latDecStr || !lonIntStr || !lonDecStr) return null;
-
-  // 관측파일의 좌표 소수부는 1/10000도 단위 정수이며 앞자리 0이 생략될 수 있음.
-  // 예: 35,980 -> 35.0980 (35.980이 아님).
-  if(!/^\d{1,4}$/.test(latDecStr) || !/^\d{1,4}$/.test(lonDecStr)) return null;
-  const lat = Number(latIntStr) + Number(latDecStr) / 10000;
-  const lon = Number(lonIntStr) + Number(lonDecStr) / 10000;
-  const roadTemp = parseFloat(parts[14]);
-  if(!isFinite(lat) || !isFinite(lon) || !isFinite(roadTemp)) return null;
-  // GPS 미수신(0,0) 등 대한민국 범위를 벗어난 좌표는 결측치로 간주하고 제외
-  if(lat < 30 || lat > 40 || lon < 120 || lon > 135) return null;
-
-  return {
-    time, site, lat, lon,
-    airTemp: parseFloat(parts[2]),
-    roadTemp,
-    roadState: (parts[15] || '').trim(),
-    friction: parseFloat(parts[16]),
-    iceTemp: parseFloat(parts[20])
-  };
-}
-
-function parseStationFile(text){
-  const rows = [];
-  const lines = text.split(/\r?\n/);
-  for(const raw of lines){
-    const line = raw.trim();
-    if(!line || line.startsWith('#') || line === '*') continue;
-    const row = parseStationLine(line);
-    if(row) rows.push(row);
-  }
-  return rows;
-}
-
-// 관측소 원본 row -> 지도 렌더링용 포인트로 변환 (모드/임계값이 바뀌면 위험 여부도 다시 계산됨)
-function toRiskPoints(rows){
-  return rows.map(row => {
-    if(MODE === 'heat'){
-      // 폭염 모드: 기온을 기준으로 판정 (기온이 없는 구형 데이터는 노면온도로 대체)
-      const heatTemp = isFinite(row.airTemp) ? row.airTemp : row.roadTemp;
-      const r = heatTemp >= HEAT_DANGER_TEMP ? 'danger' : (heatTemp >= HEAT_CAUTION_TEMP ? 'caution' : 'normal');
-      return {
-        t: row.time, la: row.lat, lo: row.lon, te: heatTemp, r,
-        friction: row.friction, airTemp: row.airTemp, roadTemp: row.roadTemp, roadState: row.roadState
-      };
-    }
-    const isDangerPt = row.roadTemp <= DANGER_ROAD_TEMP || (isFinite(row.friction) && row.friction <= DANGER_FRICTION);
-    const isCautionPt = row.roadTemp <= CAUTION_ROAD_TEMP;
-    const r = isDangerPt ? 'danger' : (isCautionPt ? 'caution' : 'normal');
-    return {
-      t: row.time, la: row.lat, lo: row.lon, te: row.roadTemp, r,
-      friction: row.friction, airTemp: row.airTemp, roadTemp: row.roadTemp, roadState: row.roadState
-    };
-  });
-}
-
-function haversineKm(a, b){
-  const R = 6371;
-  const dLat = (b[0]-a[0]) * Math.PI/180;
-  const dLon = (b[1]-a[1]) * Math.PI/180;
-  const la1 = a[0]*Math.PI/180, la2 = b[0]*Math.PI/180;
-  const h = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLon/2)**2;
-  return 2*R*Math.asin(Math.sqrt(h));
-}
-
-// 같은 도로를 왕복하거나 여러 날 반복 관측하면 사실상 같은 위치가 여러 번 찍힌다.
-// 관측 간격이 수백m~1km로 성긴 실측 데이터에서는 좌표를 그대로 격자에 맞춰 비교하면 거의 매칭되지 않으므로,
-// 격자는 "주변 후보를 빠르게 찾기 위한 색인"으로만 쓰고, 실제 중복 판정은 아래 pointSegDistMeters 같은
-// 기하학적 거리로 한다(dedupEdges/dedupClusters 참고).
-function cellKeyOf(lat, lon, cellMeters){
-  const latDeg = cellMeters / 111320;
-  const lonDeg = cellMeters / (111320 * Math.max(0.2, Math.cos(lat * Math.PI/180)));
-  return Math.round(lat / latDeg) + '_' + Math.round(lon / lonDeg);
-}
-// 격자 경계에 걸려 바로 옆 칸으로 갈리는 것을 막기 위해, 해당 지점 주변 3x3 칸을 모두 반환
-function neighborCellKeys(lat, lon, cellMeters){
-  const latDeg = cellMeters / 111320;
-  const lonDeg = cellMeters / (111320 * Math.max(0.2, Math.cos(lat * Math.PI/180)));
-  const latIdx = Math.round(lat / latDeg), lonIdx = Math.round(lon / lonDeg);
-  const keys = [];
-  for(let dy=-1; dy<=1; dy++) for(let dx=-1; dx<=1; dx++) keys.push((latIdx+dy) + '_' + (lonIdx+dx));
-  return keys;
-}
-// 위경도를 평면 좌표(미터)로 근사 변환 (수 km 이내 거리 비교용 — 지구 곡률 무시)
-function toLocalXY(lat, lon, refLat){
-  const R = 6371000;
-  return [ lon * Math.PI/180 * R * Math.cos(refLat * Math.PI/180), lat * Math.PI/180 * R ];
-}
-// 점 p에서 선분 a-b까지의 최단 거리(미터)
-function pointSegDistMeters(p, a, b, refLat){
-  const P = toLocalXY(p[0], p[1], refLat), A = toLocalXY(a[0], a[1], refLat), B = toLocalXY(b[0], b[1], refLat);
-  const abx = B[0]-A[0], aby = B[1]-A[1];
-  const abLenSq = abx*abx + aby*aby;
-  let t = abLenSq > 0 ? ((P[0]-A[0])*abx + (P[1]-A[1])*aby) / abLenSq : 0;
-  t = Math.max(0, Math.min(1, t));
-  const dx = P[0] - (A[0] + abx*t), dy = P[1] - (A[1] + aby*t);
-  return Math.sqrt(dx*dx + dy*dy);
-}
-// 긴 구간을 공간 색인에 넣을 때 버킷을 건너뛰지 않도록 일정 간격으로 좌표를 샘플링
-function sampleAlong(a, b, stepMeters){
-  const steps = Math.max(1, Math.ceil(haversineKm(a, b) * 1000 / stepMeters));
-  const pts = [];
-  for(let s=0; s<=steps; s++){
-    const t = s/steps;
-    pts.push([ a[0] + (b[0]-a[0])*t, a[1] + (b[1]-a[1])*t ]);
-  }
-  return pts;
-}
-
-// "YYYY-MM-DD H:MM[:SS]" 형식(데모/실측 공통, 시각 0패딩 없어도 허용)을 안전하게 ms로 변환
+/* ---------- 파싱 · 좌표 보정 (analysis.html과 같은 규칙) ---------- */
 function parseTimeMs(t){
   const m = String(t).match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
   if(!m) return NaN;
-  const [, y, mo, d, h, mi, s] = m;
-  return new Date(Number(y), Number(mo)-1, Number(d), Number(h), Number(mi), Number(s || 0)).getTime();
+  return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +(m[6] || 0)).getTime();
 }
-
-// 관측 시각 문자열에서 시(0~23)만 뽑아낸다 (시간대 필터용)
-// 시각 문자열 비교는 시 앞 0이 없을 때("9:18" > "10:00") 순서가 틀어지므로 실제 시각(ms)으로 정렬
-function sortRowsByTime(rows){
-  return rows.sort((a, b) => parseTimeMs(a.time) - parseTimeMs(b.time));
+function haversineKm(a, b){
+  const R = 6371, rad = Math.PI/180;
+  const dLat = (b[0]-a[0])*rad, dLon = (b[1]-a[1])*rad;
+  const h = Math.sin(dLat/2)**2 + Math.cos(a[0]*rad)*Math.cos(b[0]*rad)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
 }
-
-function parseRowHour(t){
-  const m = String(t).match(/^\d{4}-\d{2}-\d{2}\s+(\d{1,2}):/);
-  return m ? Number(m[1]) : null;
+function parseRows(text){
+  const rows = [];
+  text.split(/\r?\n/).forEach(raw => {
+    const line = raw.trim();
+    if(!line || line.startsWith('#') || line === '*') return;
+    const p = line.split(',');
+    if(p.length < 21) return;
+    const time = p[0].trim();
+    if(!time || time === '*') return;
+    const latDec = (p[9] || '').trim(), lonDec = (p[11] || '').trim();
+    if(!/^\d{1,4}$/.test(latDec) || !/^\d{1,4}$/.test(lonDec)) return;
+    const lat = Number(p[8]) + Number(latDec)/10000;
+    const lon = Number(p[10]) + Number(lonDec)/10000;
+    const roadTemp = parseFloat(p[14]);
+    if(!isFinite(lat) || !isFinite(lon) || !isFinite(roadTemp)) return;
+    if(lat < 30 || lat > 40 || lon < 120 || lon > 135) return;
+    rows.push({ time, ms: parseTimeMs(time), lat, lon, roadTemp, airTemp: parseFloat(p[2]), friction: parseFloat(p[16]) });
+  });
+  rows.sort((a, b) => a.ms - b.ms);
+  return rows;
 }
-// start<=end면 [start,end) 구간, start>end면 자정을 넘는 구간(예: 22시~4시)으로 취급
-function isHourInRange(hour, start, end){
-  if(hour === null) return false;
-  return start <= end ? (hour >= start && hour < end) : (hour >= start || hour < end);
-}
-
-// GPS 튐(순간이동) 판정: 두 지점 사이 내재 속도가 비현실적으로 크면 결측/오류 구간으로 간주
-const MAX_PLAUSIBLE_KMH = 200;
-// 관측 주기(약 1분)보다 훨씬 긴 공백(장비 일시중단 등)은 그 사이 실제 이동 경로를 알 수 없으므로,
-// 속도가 그럴듯하게 계산되더라도(두 지점을 직선으로 이으면 산을 가로지르는 것처럼 보임) 잇지 않는다.
-const MAX_GAP_MINUTES = 5;
-function isGpsGlitch(a, b, distKm){
-  const dtHr = Math.abs(parseTimeMs(b.t) - parseTimeMs(a.t)) / 3600000;
-  if(!isFinite(dtHr) || dtHr <= 0) return distKm > 1;
-  if(dtHr * 60 > MAX_GAP_MINUTES) return true;
-  return (distKm / dtHr) > MAX_PLAUSIBLE_KMH;
-}
-
-// 관측장비 로그에서 위·경도가 정수 자리(도) 경계를 넘을 때 정수부가 한 박자 늦게 올라가는 결함이 관측됨
-// (예: 34.9936 -> 34.0014 -> 35.0081, 실제로는 34.9936 -> 35.0014 -> 35.0081).
-// 이 경우 위경도가 실제로는 ±1도(약 90~111km)만큼만 어긋난 것이므로, 앞뒤 정상 지점과 비교해
-// ±1도 보정했을 때 이동속도가 현실적인 범위로 돌아오면 그 보정값을 실제 좌표로 채택한다.
-// (결측값을 추정해서 채우는 것이 아니라, 로거가 잘못 기록한 정수부를 실제 기록된 소수부 기준으로 복원하는 것)
+// 위·경도 정수부가 한 박자 늦게 올라가는 로거 결함 복원 (analysis.html repairIntegerCarry와 동일)
 function repairIntegerCarry(rows){
-  const CANDS = [-1, 0, 1];
   for(let i = 0; i < rows.length; i++){
-    const cur = rows[i];
-    const ref = rows[i-1] || rows[i+1];
+    const cur = rows[i], ref = rows[i-1] || rows[i+1];
     if(!ref) continue;
-    const dtHr = Math.max(Math.abs(parseTimeMs(cur.time) - parseTimeMs(ref.time)) / 3600000, 1/3600);
-    const origDist = haversineKm([ref.lat, ref.lon], [cur.lat, cur.lon]);
-    if((origDist / dtHr) <= MAX_PLAUSIBLE_KMH) continue; // 이미 현실적인 이동 범위
-
+    const dtHr = Math.max(Math.abs(cur.ms - ref.ms)/3600000, 1/3600);
+    if(haversineKm([ref.lat, ref.lon], [cur.lat, cur.lon]) / dtHr <= MAX_PLAUSIBLE_KMH) continue;
     let best = null;
-    CANDS.forEach(dLat => {
-      CANDS.forEach(dLon => {
-        if(dLat === 0 && dLon === 0) return;
-        const lat = cur.lat + dLat, lon = cur.lon + dLon;
-        const dist = haversineKm([ref.lat, ref.lon], [lat, lon]);
-        if(!best || dist < best.dist) best = { lat, lon, dist };
-      });
-    });
-    if(best && (best.dist / dtHr) <= MAX_PLAUSIBLE_KMH){
-      cur.lat = best.lat;
-      cur.lon = best.lon;
-    }
+    [-1, 0, 1].forEach(dLat => [-1, 0, 1].forEach(dLon => {
+      if(!dLat && !dLon) return;
+      const lat = cur.lat + dLat, lon = cur.lon + dLon;
+      const dist = haversineKm([ref.lat, ref.lon], [lat, lon]);
+      if(!best || dist < best.dist) best = { lat, lon, dist };
+    }));
+    if(best && best.dist / dtHr <= MAX_PLAUSIBLE_KMH){ cur.lat = best.lat; cur.lon = best.lon; }
   }
   return rows;
 }
+// 기록 공백(5분 초과)이나 비현실적 이동(200km/h 초과)은 이어진 주행으로 보지 않는다
+function isBreak(a, b){
+  const dist = haversineKm([a.lat, a.lon], [b.lat, b.lon]);
+  const dtHr = Math.abs(b.ms - a.ms)/3600000;
+  if(!isFinite(dtHr) || dtHr <= 0) return dist > 1;
+  if(dtHr*60 > MAX_GAP_MINUTES) return true;
+  return dist/dtHr > MAX_PLAUSIBLE_KMH;
+}
+function severityOf(r){
+  if(r.roadTemp <= DANGER_ROAD_TEMP || (isFinite(r.friction) && r.friction <= DANGER_FRICTION)) return 2;
+  return r.roadTemp <= CAUTION_ROAD_TEMP ? 1 : 0;
+}
 
-// 한 이동경로(파일 내 지점 ID)에서 그라데이션 구간 + 위험구간 클러스터 "후보"만 모은다.
-// 어느 후보를 대표로 남길지는(왕복/재방문 중복 제거) 전체 경로를 다 모은 뒤 dedupEdges/dedupClusters에서 결정한다.
-function collectRouteCandidates(points, locationLabel, edgeCandidates, clusterCandidates){
-  let cum = 0; // 경로 시작부터의 누적거리(km) - 바로 앞뒤 구간을 중복으로 오인하지 않기 위해 사용
-  for(let i=0;i<points.length-1;i++){
-    const a = points[i], b = points[i+1];
-    const d = haversineKm([a.la,a.lo], [b.la,b.lo]);
-    const edgeCum = cum;
-    cum += d;
-    if(isGpsGlitch(a, b, d)) continue; // GPS 오류로 판단되는 구간은 선을 잇지 않음
-    const avgTemp = (a.te + b.te) / 2;
-    edgeCandidates.push({ a, b, d, avgTemp, isRisk: (a.r !== 'normal' || b.r !== 'normal'), points, i, cum: edgeCum, locationLabel });
+/* ---------- 하루치 관측 요약 ---------- */
+function summarizeDay(file){
+  const rows = repairIntegerCarry(parseRows(file.text));
+  rows.forEach(r => { r.sev = severityOf(r); });
+
+  let km = 0;
+  for(let i = 1; i < rows.length; i++){
+    if(!isBreak(rows[i-1], rows[i])) km += haversineKm([rows[i-1].lat, rows[i-1].lon], [rows[i].lat, rows[i].lon]);
   }
 
-  const rawClusters = buildRiskClusters(markGpsOutliers(points));
-  rawClusters.forEach(({ points: cluster, severity }) => {
-    const temps = cluster.map(d => d.te);
-    const avgTemp = temps.reduce((s,v)=>s+v,0) / temps.length;
-    const minTemp = Math.min(...temps);
-    const maxTemp = Math.max(...temps);
-    const frictions = cluster.map(d => d.friction).filter(isFinite);
-    const minFriction = frictions.length ? Math.min(...frictions) : null;
-    const startT = cluster[0].t, endT = cluster[cluster.length-1].t;
-    const mid = cluster[Math.floor(cluster.length/2)];
-    clusterCandidates.push({ cluster, severity, avgTemp, minTemp, maxTemp, minFriction, startT, endT, mid, locationLabel });
+  // 결빙위험 판정이 연속된 관측점을 하나의 구간으로 묶음
+  const spans = [];
+  let cur = null;
+  rows.forEach((r, i) => {
+    if(r.sev === 2){
+      if(cur && isBreak(rows[i-1], r)){ spans.push(cur); cur = null; }
+      (cur = cur || []).push(r);
+    } else if(cur){ spans.push(cur); cur = null; }
   });
-}
+  if(cur) spans.push(cur);
+  const dangerSpans = spans.map(pts => {
+    let len = 0;
+    for(let i = 1; i < pts.length; i++) len += haversineKm([pts[i-1].lat, pts[i-1].lon], [pts[i].lat, pts[i].lon]);
+    const coldest = pts.reduce((m, p) => p.roadTemp < m.roadTemp ? p : m, pts[0]);
+    return { pts, len, coldest, start: pts[0], end: pts[pts.length-1] };
+  }).sort((a, b) => (b.len - a.len) || (a.coldest.roadTemp - b.coldest.roadTemp));
 
-// 같은 구간/구역을 여러 번 지났을 때 어느 쪽이 더 위험한지 비교:
-// 결빙 모드는 온도가 낮을수록, 폭염 모드는 높을수록 더 위험하다고 본다
-function isWorseTemp(candidateTemp, currentTemp){
-  return MODE === 'heat' ? candidateTemp > currentTemp : candidateTemp < currentTemp;
-}
-const CLUSTER_SEVERITY_RANK = { normal: 0, caution: 1, danger: 2 };
-// 클러스터는 심각도(위험 > 주의)를 먼저 비교하고, 같은 등급이면 더 극단적인 온도 쪽을 대표로 남긴다
-function isWorseCluster(candidate, current){
-  const rankDiff = CLUSTER_SEVERITY_RANK[candidate.severity] - CLUSTER_SEVERITY_RANK[current.severity];
-  if(rankDiff !== 0) return rankDiff > 0;
-  return isWorseTemp(candidate.avgTemp, current.avgTemp);
-}
-
-// 공간 색인 버킷 크기 — 디듀프 판정 반경 자체가 아니라, 주변 후보를 빠르게 찾기 위한 성능용 그물눈이다
-const SPATIAL_BUCKET_METERS = 200;
-// 같은 도로로 볼 최대 수직거리. 산길은 관측점 간격(수백m~1km)에 비해 커브가 많아,
-// 직선 근사 오차가 실측상 최대 300m 안팎까지도 나타나 넉넉하게 잡는다(차로 폭+GPS 오차보다 훨씬 큰 여유).
-const EDGE_DEDUP_METERS = 250;
-const ADJACENT_EDGE_KM = 1;      // 같은 주행에서 이 누적거리 안의 앞뒤 구간은 중복 비교에서 제외
-// 위험/주의구간 마커는 점 여러 개의 평균 위치라 조금 더 넉넉하게 묶는다
-const CLUSTER_DEDUP_METERS = 300;
-
-// 모든 경로의 구간 후보를 "가장 결빙(또는 폭염)이 심한 순"으로 정렬해 하나씩 채택하면서,
-// 이미 채택된 구간과 실제 거리가 가까우면(같은 도로로 보이면) 건너뛴다.
-// 관측 간격이 성겨 좌표가 거의 겹치지 않으므로, 점 대 점이 아니라 "점-선분" 거리로 비교한다.
-function dedupEdges(edgeCandidates){
-  const sorted = edgeCandidates.slice().sort((x, y) => {
-    if(isWorseTemp(x.avgTemp, y.avgTemp)) return -1;
-    if(isWorseTemp(y.avgTemp, x.avgTemp)) return 1;
-    return 0;
-  });
-
-  const index = new Map(); // 버킷 키 -> accepted 배열 인덱스 목록
-  const accepted = [];     // { a:[lat,lon], b:[lat,lon], points, cum }
-  const picked = [];
-
-  sorted.forEach(cand => {
-    const aLL = [cand.a.la, cand.a.lo], bLL = [cand.b.la, cand.b.lo];
-    const refLat = (aLL[0] + bLL[0]) / 2;
-    const samples = sampleAlong(aLL, bLL, SPATIAL_BUCKET_METERS / 2);
-
-    const nearby = new Set();
-    samples.forEach(([la, lo]) => neighborCellKeys(la, lo, SPATIAL_BUCKET_METERS).forEach(key => {
-      (index.get(key) || []).forEach(i => nearby.add(i));
-    }));
-
-    // 시작·중간·끝 세 점이 모두 이미 채택된 구간 근처에 있어야 같은 도로를 다시 지난 것으로 본다.
-    // 같은 주행의 바로 앞뒤 구간(누적거리 1km 이내)은 끝점을 공유할 뿐이므로 비교에서 뺀다
-    // (빼지 않으면 연속한 구간이 서로 중복으로 잡혀 관측거리가 절반 가까이로 줄어든다)
-    const mLL = [(aLL[0] + bLL[0]) / 2, (aLL[1] + bLL[1]) / 2];
-    const dA = [], dM = [], dB = [];
-    nearby.forEach(i => {
-      const seg = accepted[i];
-      if(seg.points === cand.points && Math.abs(seg.cum - cand.cum) < ADJACENT_EDGE_KM) return;
-      dA.push(pointSegDistMeters(aLL, seg.a, seg.b, refLat));
-      dM.push(pointSegDistMeters(mLL, seg.a, seg.b, refLat));
-      dB.push(pointSegDistMeters(bLL, seg.a, seg.b, refLat));
-    });
-    const near = arr => arr.length && Math.min(...arr) < EDGE_DEDUP_METERS;
-    if(near(dA) && near(dM) && near(dB)) return; // 더 위험하거나 같은 대표 구간이 이미 근처에 있음
-
-    const idx = accepted.length;
-    accepted.push({ a: aLL, b: bLL, points: cand.points, cum: cand.cum });
-    samples.forEach(([la, lo]) => {
-      const key = cellKeyOf(la, lo, SPATIAL_BUCKET_METERS);
-      if(!index.has(key)) index.set(key, []);
-      index.get(key).push(idx);
-    });
-    picked.push(cand);
-  });
-
-  return picked;
-}
-
-// 클러스터는 이미 여러 점의 평균 위치(mid)로 뭉친 상태이므로 점-점 거리로 비교한다
-function dedupClusters(clusterCandidates){
-  const sorted = clusterCandidates.slice().sort((x, y) => {
-    if(isWorseCluster(x, y)) return -1;
-    if(isWorseCluster(y, x)) return 1;
-    return 0;
-  });
-
-  const index = new Map();
-  const accepted = []; // [lat, lon]
-  const picked = [];
-
-  sorted.forEach(cand => {
-    const la = cand.mid.la, lo = cand.mid.lo;
-    const nearby = new Set();
-    neighborCellKeys(la, lo, SPATIAL_BUCKET_METERS).forEach(key => (index.get(key) || []).forEach(i => nearby.add(i)));
-
-    let minDist = Infinity;
-    nearby.forEach(i => { minDist = Math.min(minDist, haversineKm([la,lo], accepted[i]) * 1000); });
-    if(minDist < CLUSTER_DEDUP_METERS) return;
-
-    const idx = accepted.length;
-    accepted.push([la, lo]);
-    const key = cellKeyOf(la, lo, SPATIAL_BUCKET_METERS);
-    if(!index.has(key)) index.set(key, []);
-    index.get(key).push(idx);
-    picked.push(cand);
-  });
-
-  return picked;
-}
-
-// 결빙/폭염 위험·주의구간 선의 스타일 (온도 그라데이션 + 굵게 강조)
-function riskEdgeStyle({ avgTemp }){
-  return { color: colorFor(avgTemp), weight: 7, opacity: 1 };
-}
-// 정상 구간은 온도 정보 없이 경로 맥락만 보여주는 가는 회색 선 — 왕복/재방문으로 겹쳐도
-// 색이 균일해 두 줄로 도드라지지 않으므로 중복제거 없이 그대로 그린다
-function contextEdgeStyle(){
-  return { color: '#9aa5b1', weight: 2, opacity: 0.55 };
-}
-
-// 두 관측점이 이 거리보다 멀면 직선으로 잇지 않는다. 관측 간격(수백m~1km+)이 넓은 산길에서는
-// 직선 하나가 실제 커브 도로와 전혀 다른 모양으로 그려져, 같은 도로의 서로 다른 날 관측이
-// 마치 "두 개의 다른 도로"처럼 보이는 문제가 있었다(격자/실거리 중복제거로는 못 고치는 근본 원인).
-// 선 대신 점으로만 표시하면 모르는 구간의 도로 모양을 함부로 추정하지 않아 더 정직하다.
-const MAX_EDGE_LINE_METERS = 300;
-
-// 구간 후보를 선(또는 간격이 너무 멀면 점)으로 그림 (styleForEdge로 위험구간/정상구간 스타일을 다르게 적용)
-function drawEdges(edges, styleForEdge){
-  let distanceKm = 0;
-  const validLatLngs = [];
-  edges.forEach(({ a, b, d, avgTemp, isRisk, points, i, locationLabel }) => {
-    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${escapeAttr(locationLabel)}</div>` : '';
-    const style = styleForEdge({ avgTemp, isRisk });
-
-    // 지점 클릭 시 해당 지점 전후 구간의 관측값 추이 그래프 표시 (선/점 공용)
-    const showPointPopup = (e) => {
-      const lo = Math.max(0, i - 15), hi = Math.min(points.length, i + 16);
-      const windowPts = points.slice(lo, hi);
-      const wTemps = windowPts.map(p => p.te);
-      const wSpark = buildSparkline(wTemps, 220, 60);
-      const primaryLabel = MODE === 'heat' ? '기온' : '노면온도';
-      const trendLabel = MODE === 'heat' ? '전후 구간 기온 추이' : '전후 구간 노면온도 추이';
-      L.popup({ maxWidth: popupMaxWidth(260), maxHeight: popupMaxHeight(440) })
-        .setLatLng(e.latlng)
-        .setContent(`
-          <div class="popup-title">📍 지점 관측값</div>
-          ${locationRow}
-          <div class="popup-row">관측 시각: ${a.t}</div>
-          <div class="popup-row">${primaryLabel}: ${a.te.toFixed(1)}℃${isFinite(a.roadTemp) && MODE === 'heat' ? ' · 노면온도 '+a.roadTemp.toFixed(1)+'℃' : ''}${isFinite(a.airTemp) && MODE !== 'heat' ? ' · 기온 '+a.airTemp.toFixed(1)+'℃' : ''}</div>
-          <div class="popup-row">마찰계수: ${isFinite(a.friction) ? a.friction.toFixed(2) : '-'}${a.roadState ? ' · 노면상태코드 '+a.roadState : ''}</div>
-          <div class="popup-row" style="margin-top:6px;">${trendLabel}</div>
-          ${wSpark}
-        `)
-        .openOn(map);
-    };
-
-    if(d * 1000 > MAX_EDGE_LINE_METERS){
-      // 실제 도로 모양이라고 확정할 수 없는 구간이지만, 점만 찍으면 확대했을 때 구간을 놓치기 쉬우므로
-      // 가늘고 흐린 점선으로만 이어서 "대략 이쪽으로 이어진다"는 추적 단서는 남긴다
-      L.polyline([[a.la,a.lo],[b.la,b.lo]], {
-        color: style.color, weight: 1.5, opacity: 0.4, dashArray: '2,7', lineCap: 'round'
-      }).addTo(gradientLayer);
-      [[a.la,a.lo], [b.la,b.lo]].forEach(ll => {
-        L.circleMarker(ll, { radius: 4, color: style.color, weight: 1, fillColor: style.color, fillOpacity: 0.9 })
-          .addTo(gradientLayer)
-          .on('click', showPointPopup);
-      });
-    } else {
-      L.polyline([[a.la,a.lo],[b.la,b.lo]], { ...style, lineCap: 'round' })
-        .addTo(gradientLayer)
-        .on('click', showPointPopup);
-    }
-
-    distanceKm += d;
-    validLatLngs.push([a.la,a.lo], [b.la,b.lo]);
-  });
-  return { distanceKm, validLatLngs };
-}
-
-// dedupClusters가 고른 대표 클러스터만 위험/주의구간 마커로 그림
-function drawClusters(pickedClusters){
-  const clusters = [];
-  pickedClusters.forEach(({ cluster, severity, avgTemp, minTemp, maxTemp, minFriction, startT, endT, mid, locationLabel }) => {
-    const locationRow = locationLabel ? `<div class="popup-row">관측 장소: ${escapeAttr(locationLabel)}</div>` : '';
-    const markerColor = severityColor(severity);
-    const levelLabel = severity === 'danger' ? '위험' : '주의';
-    clusters.push({ points: cluster, severity });
-
-    let title, statLine, reason;
-    if(MODE === 'heat'){
-      title = `${severity === 'danger' ? '🔥' : '🟠'} 폭염 ${levelLabel}구간`;
-      reason = '고온';
-      statLine = `평균 기온: ${avgTemp.toFixed(1)}℃ · 최고 ${maxTemp.toFixed(1)}℃`;
-    } else {
-      title = `${severity === 'danger' ? '⚠' : '🟠'} 결빙 ${levelLabel}구간`;
-      reason = minTemp <= DANGER_ROAD_TEMP
-        ? '노면온도 저하'
-        : (minFriction !== null && minFriction <= DANGER_FRICTION ? '마찰계수 저하(미끄러움)' : '노면온도 저하 주의');
-      statLine = `평균 노면온도: ${avgTemp.toFixed(1)}℃ · 최저 ${minTemp.toFixed(1)}℃`;
-    }
-
-    // 구간 내 연속 관측점도 간격이 너무 멀면(산길 커브 등) 직선 대신 점으로 표시
-    for(let ci=0; ci<cluster.length-1; ci++){
-      const p1 = [cluster[ci].la, cluster[ci].lo], p2 = [cluster[ci+1].la, cluster[ci+1].lo];
-      if(haversineKm(p1, p2) * 1000 > MAX_EDGE_LINE_METERS){
-        L.polyline([p1, p2], { color: markerColor, weight: 1.5, opacity: 0.4, dashArray: '2,7', lineCap: 'round' }).addTo(routeLayer);
-        [p1, p2].forEach(ll => {
-          L.circleMarker(ll, { radius: 3, color: markerColor, weight: 1, fillColor: markerColor, fillOpacity: 0.9 }).addTo(routeLayer);
-        });
-      } else {
-        L.polyline([p1, p2], { color:markerColor, weight:7, opacity:1, lineCap:'round' }).addTo(routeLayer);
-      }
-    }
-
-    const marker = L.circleMarker([mid.la, mid.lo], {
-      radius: severity === 'danger' ? 7 : 6, color: '#ffffff', weight: 2, fillColor: markerColor, fillOpacity: 1
-    }).addTo(routeLayer);
-    allClusterMarkers.push({ startMs: parseTimeMs(startT), endMs: parseTimeMs(endT), severity, marker });
-
-    const temps = cluster.map(d => d.te);
-    const sparkSvg = buildSparkline(temps, 220, 60);
-    const satId = `sat-${++satPopupSeq}`;
-    marker.bindPopup(`
-      <div class="popup-title">${title}${reason ? ' · '+reason : ''}</div>
-      ${locationRow}
-      <div class="popup-row">관측 시각: ${startT} ~ ${endT}</div>
-      <div class="popup-row">구간 내 관측지점: ${cluster.length}개</div>
-      <div class="popup-row">${statLine}</div>
-      ${MODE !== 'heat' ? `<div class="popup-row">최저 마찰계수: ${minFriction !== null ? minFriction.toFixed(2) : '-'}</div>` : ''}
-      <div class="popup-section">대표 관측점 · 위성영상</div><div class="popup-row">${mid.t} · ${mid.la.toFixed(4)}, ${mid.lo.toFixed(4)}</div><div class="popup-note">구간 중간 순서의 GPS 관측점입니다. 실제 도로 위치와 다를 수 있습니다.</div>
-      <div class="popup-sat" id="${satId}"></div>
-      <div class="popup-row" style="margin-top:6px;">구간 내 ${MODE === 'heat' ? '기온' : '온도'} 변화</div>
-      ${sparkSvg}
-    `, { maxWidth: popupMaxWidth(300), maxHeight: popupMaxHeight(440), autoPanPaddingTopLeft: [20, 60], autoPanPaddingBottomRight: [20, 20] });
-
-    // 팝업이 열릴 때 그 지점을 중심으로 한 위성사진 미니맵 생성, 닫히면 정리(메모리 누수 방지)
-    let satMap = null;
-    marker.on('popupopen', () => {
-      const el = document.getElementById(satId);
-      if(!el) return;
-      satMap = L.map(el, {
-        zoomControl: false, attributionControl: false, dragging: false,
-        scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
-        keyboard: false, tap: false
-      }).setView([mid.la, mid.lo], 17);
-      L.tileLayer(SATELLITE_TILE_URL, { maxZoom: 19 }).addTo(satMap);
-      L.circleMarker([mid.la, mid.lo], {
-        radius: 6, color: '#fff', weight: 2, fillColor: markerColor, fillOpacity: 1
-      }).addTo(satMap);
-      setTimeout(() => satMap && satMap.invalidateSize(), 50);
-    });
-    marker.on('popupclose', () => {
-      if(satMap){ satMap.remove(); satMap = null; }
-    });
-  });
-  return clusters;
-}
-
-/* ==================================================================
-   전체 대시보드 렌더 - 데모/업로드 데이터 공통 진입점
-   ================================================================== */
-let currentRoutes = [];     // 항상 "전체 시간 범위" 원본 rows 유지 (임계값/슬라이더 변경 시 재사용)
-let currentFileNames = [];
-let currentMinMs = null, currentMaxMs = null;
-let sliderCutoffMs = null;  // null = 전체 구간 표시
-let hourFilterEnabled = false; // true면 아래 시/종료시 사이의 관측만 표시 (예: 새벽 시간대만)
-let hourFilterStartH = 0, hourFilterEndH = 6;
-
-function computeCoverage(routes){
-  let totalPts = 0, minMs = null, maxMs = null;
-  // 여러 날 파일을 합치면 처음~끝 차이에 관측 사이 공백(며칠)이 섞이므로, 경로별 관측 시간을 따로 더한다
-  let observedMs = 0;
-  const intervals = [];
-  const days = new Set();
-  routes.forEach(route => {
-    totalPts += route.rows.length;
-    let prevMs = null, routeMin = null, routeMax = null;
-    route.rows.forEach(row => {
-      const ms = parseTimeMs(row.time);
-      if(!isFinite(ms)) return;
-      if(minMs === null || ms < minMs) minMs = ms;
-      if(maxMs === null || ms > maxMs) maxMs = ms;
-      if(routeMin === null || ms < routeMin) routeMin = ms;
-      if(routeMax === null || ms > routeMax) routeMax = ms;
-      days.add(String(row.time).slice(0, 10));
-      if(prevMs !== null) intervals.push(Math.abs(ms - prevMs));
-      prevMs = ms;
-    });
-    if(routeMin !== null) observedMs += routeMax - routeMin;
-  });
-  intervals.sort((a,b) => a-b);
-  const medianMs = intervals.length ? intervals[Math.floor(intervals.length/2)] : null;
-  return { totalPts, minMs, maxMs, medianMs, observedMs, dayCount: days.size };
-}
-
-function formatIntervalMs(ms){
-  if(ms === null || !isFinite(ms)) return '-';
-  const s = Math.round(ms / 1000);
-  if(s < 60) return `약 ${s}초`;
-  return `약 ${Math.round(s / 60)}분`;
-}
-
-function formatDurationMs(ms){
-  const totalMin = Math.max(1, Math.round(ms / 60000));
-  const h = Math.floor(totalMin / 60), m = totalMin % 60;
-  return h ? `${h}시간 ${m}분` : `${m}분`;
-}
-
-function drawFromRoutes(routes, fileNames){
-  gradientLayer.clearLayers();
-  routeLayer.clearLayers();
-  allClusterMarkers = [];
-
-  let allPts = [];
-  const routePts = []; // 관측일별 노선 위치 띠 차트용
-  // 여러 이동경로(날짜)에 걸쳐 같은 구간/구역을 지날 때마다 후보를 모아뒀다가,
-  // 전부 모은 뒤 dedupEdges/dedupClusters가 가장 위험한(결빙이 심한) 후보 하나만 대표로 고른다
-  const edgeCandidates = [];
-  const clusterCandidates = [];
-
-  routes.forEach(route => {
-    const points = toRiskPoints(route.rows);
-    const cleaned = markGpsOutliers(points);
-    allPts = allPts.concat(cleaned);
-    routePts.push({ route, pts: cleaned });
-    collectRouteCandidates(points, route.location, edgeCandidates, clusterCandidates);
-  });
-
-  // 정상 구간은 중복제거 없이 가는 회색 선으로 경로 맥락만 보여주고(겹쳐도 색이 균일해 두 줄로 도드라지지 않음),
-  // 결빙/폭염 위험·주의구간만 실거리 기반으로 중복 제거한 뒤 굵게 강조해서 그린다
-  const riskEdgeCandidates = edgeCandidates.filter(e => e.isRisk);
-  const normalEdgeCandidates = edgeCandidates.filter(e => !e.isRisk);
-  drawEdges(normalEdgeCandidates, contextEdgeStyle);
-  drawEdges(dedupEdges(riskEdgeCandidates), riskEdgeStyle);
-  const allClusters = drawClusters(dedupClusters(clusterCandidates));
-
-  // "관측거리"는 화면 표시 여부와 무관하게 전체 구간 기준 고유 도로 길이(왕복/재방문 중복 제외)로 계산
-  const totalDistanceKm = dedupEdges(edgeCandidates).reduce((s, e) => s + e.d, 0);
-  const boundsLatLngs = allPts.map(p => [p.la, p.lo]);
-
-  lastBoundsLatLngs = boundsLatLngs;
-  if(boundsLatLngs.length){
-    map.fitBounds(boundsLatLngs, { padding: [24, 24] });
-  }
-
-  if(allPts.length === 0){
-    document.getElementById('curAvgTemp').textContent = '-';
-    document.getElementById('curTotal').textContent = '0개';
-    document.getElementById('curDistance').textContent = '0.0km';
-    document.getElementById('updateTime').textContent = '관측시각 -';
-    document.getElementById('statusRow').innerHTML = '';
-    const trendEl0 = document.getElementById('trendChart');
-    if(trendEl0) trendEl0.innerHTML = '';
-    return;
-  }
-
-  // 시각 문자열 비교는 시 앞 0이 없을 때("9:18" > "10:00") 틀리므로 실제 시각(ms)으로 최소/최대를 찾는다
-  let tempSum = 0, tempMin = Infinity, tempMax = -Infinity, minTime = null, maxTime = null, minMs = Infinity, maxMs = -Infinity;
-  allPts.forEach(d => {
-    tempSum += d.te;
-    if(d.te < tempMin) tempMin = d.te;
-    if(d.te > tempMax) tempMax = d.te;
-    const ms = parseTimeMs(d.t);
-    if(Number.isNaN(ms)) return;
-    if(ms < minMs){ minMs = ms; minTime = d.t; }
-    if(ms > maxMs){ maxMs = ms; maxTime = d.t; }
-  });
-  const avgTemp = tempSum / allPts.length;
-  // 결빙 모드는 "가장 추운 값"이, 폭염 모드는 "가장 더운 값"이 핵심 지표
-  const keyTemp = MODE === 'heat' ? tempMax : tempMin;
-  const dangerClusters = allClusters.filter(c => c.severity === 'danger');
-  const cautionClusters = allClusters.filter(c => c.severity === 'caution');
-
-  document.getElementById('curAvgTemp').textContent = avgTemp.toFixed(1) + '℃';
-  document.getElementById('curTotal').textContent = allPts.length.toLocaleString() + '개';
-  document.getElementById('curDistance').textContent = totalDistanceKm.toFixed(1) + 'km';
-  document.getElementById('updateTime').textContent = `관측 ${minTime} ~ ${maxTime} (${allPts.length.toLocaleString()}건)`;
-
-  const trendEl = document.getElementById('trendChart');
-  if(trendEl) renderTrendChart(trendEl, routePts);
-
-  const locations = Array.from(new Set(routes.map(r => (r.location || '').trim()).filter(Boolean)));
-  document.getElementById('obsMeta').textContent = locations.length
-    ? locations.join(', ')
-    : fileNames.join(', ');
-
-  const isDemo = routes.length && routes[0].site === 'demo';
-  const modeSuffix = MODE === 'heat' ? '기온 센서 이동관측(폭염 모드)' : '지면(노면)온도 센서 이동관측';
-  const areaLabel = locations.length ? locations.join(', ') : (isDemo ? '강진 구간' : `이동경로 ${routes.length}개`);
-  document.getElementById('brandSub').textContent = isDemo
-    ? `${areaLabel} · ${modeSuffix}`
-    : `${areaLabel} · 관측파일 · ${modeSuffix}`;
-
-  let keyDot, keyText;
-  if(MODE === 'heat'){
-    keyDot = keyTemp >= HEAT_DANGER_TEMP ? 'red' : (keyTemp >= HEAT_CAUTION_TEMP ? 'orange' : 'green');
-    keyText = keyTemp >= HEAT_DANGER_TEMP ? '위험' : (keyTemp >= HEAT_CAUTION_TEMP ? '주의' : '정상');
-  } else {
-    keyDot = keyTemp <= DANGER_ROAD_TEMP ? 'risk' : (keyTemp <= CAUTION_ROAD_TEMP ? 'orange' : 'green');
-    keyText = keyTemp <= DANGER_ROAD_TEMP ? '위험' : (keyTemp <= CAUTION_ROAD_TEMP ? '주의' : '정상');
-  }
-  const riskDotS = dangerClusters.length > 0 ? 'risk' : 'green';
-  const riskTextS = dangerClusters.length > 0 ? '기준 해당' : '기준 미해당';
-  const cautionDotS = cautionClusters.length > 0 ? 'orange' : 'green';
-  const cautionTextS = cautionClusters.length > 0 ? '기준 해당' : '기준 미해당';
-  const tempColLabel = MODE === 'heat' ? '기온(℃)' : '노면온도(℃)';
-  const riskColLabel = MODE === 'heat' ? '폭염위험구간' : '결빙위험구간';
-  const cautionColLabel = MODE === 'heat' ? '폭염주의구간' : '결빙주의구간';
-
-  document.getElementById('statusRow').innerHTML =
-    statusColumn(tempColLabel, keyDot, keyText, keyTemp.toFixed(1)+'℃') +
-    statusColumn(riskColLabel, riskDotS, riskTextS, dangerClusters.length+'곳') +
-    statusColumn(cautionColLabel, cautionDotS, cautionTextS, cautionClusters.length+'곳');
-}
-
-// 임계값/시간 슬라이더/시간대 필터/관측일 표시 체크박스가 바뀔 때마다 currentRoutes를 기준으로 다시 그림
-/* ==================================================================
-   연도별 분석 - 선택한 연도의 모든 관측 자료를 합쳐 평균·위험 비율을 내고 연도끼리 비교
-   ================================================================== */
-const routeCache = new WeakMap(); // 관측 자료(그룹) -> 지점별 이동경로 (파일 파싱은 한 번만)
-let yearSummaryKey = '';
-
-function routesOf(group){
-  if(!routeCache.has(group)) routeCache.set(group, buildRoutes(group).routes);
-  return routeCache.get(group);
-}
-
-function summarizeYear(year){
-  const groups = allGroups().filter(g => g.year === year);
-  const days = new Set();
-  let n = 0, roadSum = 0, airSum = 0, airN = 0, roadMin = Infinity, roadMax = -Infinity, danger = 0, caution = 0;
-  groups.forEach(g => routesOf(g).forEach(route => {
-    markGpsOutliers(toRiskPoints(route.rows)).forEach(p => {
-      n++;
-      roadSum += p.roadTemp;
-      if(p.roadTemp < roadMin) roadMin = p.roadTemp;
-      if(p.roadTemp > roadMax) roadMax = p.roadTemp;
-      if(isFinite(p.airTemp)){ airSum += p.airTemp; airN++; }
-      if(p.r === 'danger') danger++;
-      else if(p.r === 'caution') caution++;
-      days.add(String(p.t).slice(0, 10));
-    });
-  }));
+  const startHour = rows.length ? new Date(rows[0].ms).getHours() : 0;
+  // 출발 시각 기준: 03~07시 새벽, 17시 이후 저녁, 그 외 낮
+  const period = (startHour >= 3 && startHour < 8) ? 'dawn' : (startHour >= 17 ? 'eve' : 'day');
+  const n = rows.length || 1;
+  const coldest = rows.reduce((m, r) => (!m || r.roadTemp < m.roadTemp) ? r : m, null);
   return {
-    year, groups: groups.length, days: days.size, n,
-    avgRoad: n ? roadSum / n : NaN, avgAir: airN ? airSum / airN : NaN, roadMin, roadMax,
-    dangerPct: n ? danger / n * 100 : 0, cautionPct: n ? caution / n * 100 : 0,
-    hasUpload: groups.some(g => g.uploaded)
+    file, rows, km, dangerSpans, period, coldest,
+    dangerPct: rows.filter(r => r.sev === 2).length / n * 100,
+    cautionPct: rows.filter(r => r.sev === 1).length / n * 100,
+    riskPct: rows.filter(r => r.sev > 0).length / n * 100
   };
 }
 
-function renderYearAnalysis(){
-  if(!selectedYear) return;
-  // 연도·자료 목록·판정 기준이 그대로면 다시 계산하지 않는다 (시간 재생 중 redraw가 잦음)
-  const key = [selectedYear, MODE, DANGER_ROAD_TEMP, CAUTION_ROAD_TEMP, DANGER_FRICTION, HEAT_CAUTION_TEMP, HEAT_DANGER_TEMP, allGroups().map(groupId).join('|')].join('/');
-  if(key === yearSummaryKey) return;
-  yearSummaryKey = key;
-
-  const rows = allYears().map(summarizeYear);
-  const cur = rows.find(r => r.year === selectedYear);
-  const heat = MODE === 'heat';
-  const label = heat ? '폭염' : '결빙';
-  const fmt = v => isFinite(v) ? v.toFixed(1) + '℃' : '-';
-  const pct = v => Math.round(v) + '%';
-
-  document.getElementById('yearTitle').textContent = `${selectedYear}${/^\d{4}$/.test(selectedYear) ? '년' : ''} 연간 분석`;
-  document.getElementById('yearMeta').textContent =
-    `관측 자료 ${cur.groups}개 · 관측일 ${cur.days}일 · 관측점 ${cur.n.toLocaleString()}개 합산`;
-  document.getElementById('yearKpis').innerHTML = `
-    <div class="year-kpi"><dt>평균 노면온도</dt><dd>${fmt(cur.avgRoad)}</dd><small>최저 ${fmt(cur.roadMin)} · 최고 ${fmt(cur.roadMax)}</small></div>
-    <div class="year-kpi"><dt>평균 기온</dt><dd>${fmt(cur.avgAir)}</dd><small>${isFinite(cur.avgAir) ? '기온 관측값 평균' : '기온 관측값 없음'}</small></div>
-    <div class="year-kpi risk"><dt>${label} 위험·주의 비율</dt><dd>${pct(cur.dangerPct + cur.cautionPct)}</dd><small>위험 ${pct(cur.dangerPct)} · 주의 ${pct(cur.cautionPct)}</small></div>
-    <div class="year-kpi"><dt>관측 규모</dt><dd>${cur.days}일</dd><small>관측 자료 ${cur.groups}개 · ${cur.n.toLocaleString()}점</small></div>`;
-
-  document.getElementById('yearTable').innerHTML = `
-    <thead><tr><th>연도</th><th class="opt">관측일</th><th>평균 노면</th><th>평균 기온</th><th class="opt">최저 노면</th><th class="opt">위험</th><th class="opt">주의</th><th>위험+주의</th></tr></thead>
-    <tbody>${rows.map(r => `
-      <tr class="${r.year === selectedYear ? 'on' : ''}" data-year="${escapeAttr(r.year)}">
-        <th>${escapeAttr(r.year)}${r.hasUpload ? ' <span class="road-badge">추가</span>' : ''}</th>
-        <td class="opt">${r.days}일</td><td>${fmt(r.avgRoad)}</td><td>${fmt(r.avgAir)}</td><td class="opt">${fmt(r.roadMin)}</td>
-        <td class="opt">${pct(r.dangerPct)}</td><td class="opt">${pct(r.cautionPct)}</td><td><b>${pct(r.dangerPct + r.cautionPct)}</b></td>
-      </tr>`).join('')}</tbody>`;
-  document.getElementById('yearNote').textContent =
-    `그해 모든 관측 자료의 관측점을 합쳐 계산했습니다(관측점 수가 많은 자료의 비중이 큼). ` +
-    `판정 기준: ${heat ? `위험 기온 ${HEAT_DANGER_TEMP}℃ 이상 · 주의 ${HEAT_CAUTION_TEMP}℃ 이상` : `위험 노면 ${DANGER_ROAD_TEMP}℃ 이하 또는 마찰계수 ${DANGER_FRICTION} 이하 · 주의 노면 ${CAUTION_ROAD_TEMP}℃ 이하`}. 연도마다 관측한 노선·시간대가 다르면 단순 비교에 주의하세요. 표의 연도를 누르면 그 연도로 이동합니다.`;
+/* ---------- 표시 형식 ---------- */
+const pad = n => String(n).padStart(2, '0');
+function fmtDate(ms){ const d = new Date(ms); return `${d.getMonth()+1}/${d.getDate()}(${WEEKDAYS[d.getDay()]})`; }
+function fmtHM(ms){ const d = new Date(ms); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function fmtTemp(t){ return (t < 0 ? '−' : '') + Math.abs(t).toFixed(1) + '℃'; }
+const PERIOD_LABEL = { dawn: '새벽', eve: '저녁', day: '낮' };
+function rangePct(list){
+  const v = list.map(d => Math.round(d.riskPct));
+  const lo = Math.min(...v), hi = Math.max(...v);
+  return lo === hi ? `${hi}%` : `${lo}~${hi}%`;
 }
 
-document.getElementById('yearTable').addEventListener('click', e => {
-  const tr = e.target.closest('tr[data-year]');
-  if(tr && tr.dataset.year !== selectedYear) selectYear(tr.dataset.year);
-});
+/* ---------- 지도 ---------- */
+const map = L.map('map', { zoomControl: true, scrollWheelZoom: false, gestureHandling: L.Browser.mobile });
 
-function redraw(){
-  let routesToDraw = currentRoutes.filter(r => r.visible !== false);
-  if(sliderCutoffMs !== null && currentMaxMs !== null && sliderCutoffMs < currentMaxMs){
-    routesToDraw = routesToDraw.map(r => ({
-      ...r,
-      rows: r.rows.filter(row => {
-        const ms = parseTimeMs(row.time);
-        return isFinite(ms) && ms <= sliderCutoffMs;
-      })
-    }));
-  }
-  if(hourFilterEnabled){
-    routesToDraw = routesToDraw.map(r => ({
-      ...r,
-      rows: r.rows.filter(row => isHourInRange(parseRowHour(row.time), hourFilterStartH, hourFilterEndH))
-    }));
-  }
-  drawFromRoutes(routesToDraw, currentFileNames);
-  renderYearAnalysis();
+// 세로 한 줄 배치(휴대폰)에서는 지도가 목록 위에 있으므로, 날짜/구간을 누르면 지도가 보이게 스크롤
+function revealMap(){
+  if(!window.matchMedia('(max-width:1100px)').matches) return;
+  const r = document.querySelector('.map-card').getBoundingClientRect();
+  if(r.top < 0 || r.bottom > window.innerHeight) document.querySelector('.map-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 18, attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+let routeLayer = L.layerGroup().addTo(map);
+let spotLayer = L.layerGroup().addTo(map);
+const spotMarkers = [];
+
+function drawDay(day){
+  routeLayer.clearLayers();
+  spotLayer.clearLayers();
+  spotMarkers.length = 0;
+  const rows = day.rows;
+  // 위험도가 낮은 선부터 그려 위험 구간이 위에 오도록
+  [0, 1, 2].forEach(level => {
+    for(let i = 1; i < rows.length; i++){
+      const a = rows[i-1], b = rows[i];
+      if(isBreak(a, b)) continue;
+      const sev = Math.max(a.sev, b.sev);
+      if(sev !== level) continue;
+      L.polyline([[a.lat, a.lon], [b.lat, b.lon]], {
+        color: COLORS[sev], weight: sev ? 8 : 4, opacity: sev ? 0.95 : 0.7, lineCap: 'round'
+      }).addTo(routeLayer);
+    }
+  });
+  day.dangerSpans.slice(0, 5).forEach((s, idx) => {
+    const m = L.marker([s.coldest.lat, s.coldest.lon], {
+      icon: L.divIcon({ className: '', html: `<div class="pin">${idx+1}</div>`, iconSize: [30, 30], iconAnchor: [15, 15] }),
+      zIndexOffset: 1000
+    }).bindPopup(
+      `<b>결빙위험 구간 ${idx+1}</b><br>최저 노면온도 ${fmtTemp(s.coldest.roadTemp)} (${fmtHM(s.coldest.ms)})<br>` +
+      `${s.len >= 0.1 ? '약 ' + s.len.toFixed(1) + 'km 연속 · ' : '단일 관측 지점 · '}${fmtHM(s.start.ms)}~${fmtHM(s.end.ms)}`
+    ).addTo(spotLayer);
+    spotMarkers.push(m);
+  });
+  const latlngs = rows.map(r => [r.lat, r.lon]);
+  if(latlngs.length) map.fitBounds(latlngs, { padding: [30, 30] });
 }
 
-function renderStationDashboard(routes, fileNames){
-  if(playTimer){ clearInterval(playTimer); playTimer = null; }
-  playBtn.textContent = '▶ 재생';
-  routes.forEach(r => { r.visible = true; }); // 관측일 표시 체크박스 기본값: 전부 켜짐
-  currentRoutes = routes;
-  currentFileNames = fileNames;
-  sliderCutoffMs = null;
-  renderRouteVisibilityPanel();
+/* ---------- 화면 구성 ---------- */
+let days = [];
+let activeIdx = 0;
 
-  const { totalPts, minMs, maxMs, medianMs, observedMs, dayCount } = computeCoverage(routes);
-  currentMinMs = minMs;
-  currentMaxMs = maxMs;
-
-  if(minMs !== null && maxMs !== null && minMs < maxMs){
-    timeSlider.min = String(minMs);
-    timeSlider.max = String(maxMs);
-    timeSlider.value = String(maxMs);
-    timeSlider.disabled = false;
-    timeLabel.textContent = formatTimeLabel(maxMs);
-  } else {
-    timeSlider.disabled = true;
-    timeLabel.textContent = '-';
-  }
-
-  document.getElementById('curRouteCount').textContent = routes.length.toLocaleString() + '개';
-  document.getElementById('curInterval').textContent = formatIntervalMs(medianMs);
-  document.getElementById('curDuration').innerHTML = (minMs !== null && maxMs !== null)
-    ? formatDurationMs(observedMs) + (dayCount > 1 ? `<small>${dayCount}일 합계</small>` : '')
-    : '-';
-
-  redraw();
-}
-
-/* ==================================================================
-   관측일 표시 체크박스 - 여러 날짜/파일을 한꺼번에 올렸을 때 원하는 것만 골라보기
-   ================================================================== */
-const routeVisibilitySection = document.getElementById('routeVisibilitySection');
-const routeVisibilityList = document.getElementById('routeVisibilityList');
-
-function renderRouteVisibilityPanel(){
-  if(currentRoutes.length <= 1){
-    routeVisibilitySection.hidden = true;
-    routeVisibilityList.innerHTML = '';
-    return;
-  }
-  routeVisibilitySection.hidden = false;
-  const sameLocation = currentRoutes.every(r => r.location === currentRoutes[0].location);
-  routeVisibilityList.innerHTML = currentRoutes.map((r, i) => {
-    const dateLabel = (r.rows[0] && r.rows[0].time) ? r.rows[0].time.slice(0, 10) : (r.fileName || `경로 ${i+1}`);
-    const locText = r.location ? ' · ' + r.location : '';
-    const checked = r.visible !== false;
-    return `
-      <label class="rv-item${checked ? '' : ' off'}">
-        <input type="checkbox" data-rv-idx="${i}" ${checked ? 'checked' : ''}>
-        <span>${escapeAttr(dateLabel)} ${escapeAttr(r.rows[0] ? r.rows[0].time.slice(11, 16) : '')}${sameLocation ? '' : `<span>${escapeAttr(locText)}</span>`} <span class="rv-count">(${r.rows.length.toLocaleString()}건)</span></span>
-      </label>
-    `;
+function renderDays(){
+  const el = document.getElementById('days');
+  el.innerHTML = days.map((d, i) => {
+    const first = d.rows[0], last = d.rows[d.rows.length-1];
+    return `<button class="day${i === activeIdx ? ' active' : ''}" data-i="${i}">
+      <div>
+        <div class="d">${fmtDate(first.ms)}<span class="tag ${d.period}">${PERIOD_LABEL[d.period]}</span></div>
+        <div class="t">${fmtHM(first.ms)}~${fmtHM(last.ms)} · ${Math.round(d.km)}km</div>
+      </div>
+      <div class="bar" title="결빙위험 ${d.dangerPct.toFixed(0)}% · 결빙주의 ${d.cautionPct.toFixed(0)}%">
+        <i style="width:${d.dangerPct}%;background:var(--danger)"></i><i style="width:${d.cautionPct}%;background:var(--caution)"></i>
+      </div>
+      <div class="pct">${Math.round(d.riskPct)}%</div>
+    </button>`;
   }).join('');
 }
 
-routeVisibilityList.addEventListener('change', (e) => {
-  const idxAttr = e.target.getAttribute('data-rv-idx');
-  if(idxAttr === null) return;
-  const i = Number(idxAttr);
-  currentRoutes[i].visible = e.target.checked;
-  e.target.closest('.rv-item').classList.toggle('off', !e.target.checked);
-  redraw();
-});
-
-document.getElementById('rvShowAll').addEventListener('click', () => {
-  currentRoutes.forEach(r => { r.visible = true; });
-  renderRouteVisibilityPanel();
-  redraw();
-});
-document.getElementById('rvHideAll').addEventListener('click', () => {
-  currentRoutes.forEach(r => { r.visible = false; });
-  renderRouteVisibilityPanel();
-  redraw();
-});
-
-/* ==================================================================
-   임계값 설정 패널
-   ================================================================== */
-const thDangerTemp = document.getElementById('thDangerTemp');
-const thCautionTemp = document.getElementById('thCautionTemp');
-const thFriction = document.getElementById('thFriction');
-[thDangerTemp, thCautionTemp, thFriction].forEach(el => {
-  el.addEventListener('change', () => {
-    DANGER_ROAD_TEMP = parseFloat(thDangerTemp.value);
-    CAUTION_ROAD_TEMP = parseFloat(thCautionTemp.value);
-    DANGER_FRICTION = parseFloat(thFriction.value);
-    redraw();
-  });
-});
-
-const thHeatCaution = document.getElementById('thHeatCaution');
-const thHeatDanger = document.getElementById('thHeatDanger');
-[thHeatCaution, thHeatDanger].forEach(el => {
-  el.addEventListener('change', () => {
-    HEAT_CAUTION_TEMP = parseFloat(thHeatCaution.value);
-    HEAT_DANGER_TEMP = parseFloat(thHeatDanger.value);
-    redraw();
-  });
-});
-
-const hourFilterToggle = document.getElementById('hourFilterToggle');
-const hourFilterStart = document.getElementById('hourFilterStart');
-const hourFilterEnd = document.getElementById('hourFilterEnd');
-hourFilterToggle.addEventListener('change', () => {
-  hourFilterEnabled = hourFilterToggle.checked;
-  redraw();
-});
-[hourFilterStart, hourFilterEnd].forEach(el => {
-  el.addEventListener('change', () => {
-    hourFilterStartH = Math.min(23, Math.max(0, Math.round(Number(hourFilterStart.value))));
-    hourFilterEndH = Math.min(23, Math.max(0, Math.round(Number(hourFilterEnd.value))));
-    hourFilterStart.value = String(hourFilterStartH);
-    hourFilterEnd.value = String(hourFilterEndH);
-    if(hourFilterEnabled) redraw();
-  });
-});
-
-/* ==================================================================
-   결빙 / 폭염 자동 판단 - 파일을 불러오면 데이터를 분석해 모드를 자동 전환
-   ================================================================== */
-function detectMode(routes){
-  let minRoadTemp = Infinity, maxHeatTemp = -Infinity;
-  routes.forEach(route => {
-    route.rows.forEach(row => {
-      if(isFinite(row.roadTemp) && row.roadTemp < minRoadTemp) minRoadTemp = row.roadTemp;
-      const heatTemp = isFinite(row.airTemp) ? row.airTemp : row.roadTemp;
-      if(isFinite(heatTemp) && heatTemp > maxHeatTemp) maxHeatTemp = heatTemp;
-    });
-  });
-
-  // 임계값을 얼마나 넘었는지를 "위험 신호 강도"로 보고, 더 뚜렷한 쪽으로 자동 전환
-  const icingScore = isFinite(minRoadTemp) ? (CAUTION_ROAD_TEMP - minRoadTemp) : -Infinity;
-  const heatScore = isFinite(maxHeatTemp) ? (maxHeatTemp - HEAT_CAUTION_TEMP) : -Infinity;
-
-  let mode = null;
-  if(icingScore > 0 && heatScore > 0){
-    mode = icingScore >= heatScore ? 'icing' : 'heat';
-  } else if(icingScore > 0){
-    mode = 'icing';
-  } else if(heatScore > 0){
-    mode = 'heat';
-  }
-
-  return { mode, minRoadTemp, maxHeatTemp, icingScore, heatScore };
-}
-
-/* ==================================================================
-   결빙 / 폭염 모드 전환
-   ================================================================== */
-function applyModeLabels(){
-  const heat = MODE === 'heat';
-  document.documentElement.style.setProperty('--risk', riskColor());
-  document.documentElement.style.setProperty('--risk-soft', heat ? '#fdeceb' : '#eaf1ff');
-  document.getElementById('brandTitle').textContent = heat
-    ? '도로 폭염 구간 관측 현황'
-    : '도로결빙 구간 관측 현황';
-  document.getElementById('legendTitle').textContent = heat ? '기온' : '노면온도';
-  document.getElementById('legendRiskLabel').textContent = heat ? '폭염 위험구간' : '결빙 위험구간';
-  document.getElementById('legendCautionLabel').textContent = heat ? '폭염 주의구간' : '결빙 주의구간';
-  const legendCautionDot = document.getElementById('legendCautionDot');
-  legendCautionDot.style.background = cautionColor();
-  legendCautionDot.style.boxShadow = `0 0 0 1px ${cautionColor()}`;
-  const scaleStops = heat ? HEAT_STOPS : ICE_STOPS;
-  const scaleColors = scaleStops.map(s => rgb(s[1])).join(',');
-  document.getElementById('legendBar').style.background = `linear-gradient(to right, ${scaleColors})`;
-  document.getElementById('legendScale').innerHTML =
-    `<span>${scaleStops[0][0]}℃</span><span>${scaleStops[Math.floor(scaleStops.length/2)][0]}℃</span><span>${scaleStops[scaleStops.length-1][0]}℃+</span>`;
-
-  document.getElementById('icingThresholds').hidden = heat;
-  document.getElementById('heatThresholds').hidden = !heat;
-
-  document.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === MODE);
-    btn.setAttribute('aria-pressed', String(btn.dataset.mode === MODE));
-  });
-}
-
-document.getElementById('modeToggle').addEventListener('click', (e) => {
-  const btn = e.target.closest('.mode-btn');
-  if(!btn || btn.dataset.mode === MODE) return;
-  MODE = btn.dataset.mode;
-  applyModeLabels();
-  redraw();
-});
-
-/* ==================================================================
-   시간 재생 슬라이더
-   ================================================================== */
-const timeSlider = document.getElementById('timeSlider');
-const timeLabel = document.getElementById('timeLabel');
-const playBtn = document.getElementById('playBtn');
-let redrawScheduled = false;
-let playTimer = null;
-
-function formatTimeLabel(ms){
-  const dt = new Date(ms);
-  const p = n => String(n).padStart(2,'0');
-  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())} ${p(dt.getHours())}:${p(dt.getMinutes())}:${p(dt.getSeconds())}`;
-}
-
-// requestAnimationFrame은 백그라운드/비활성 탭에서 지연될 수 있어 setTimeout 기반으로 스로틀
-function scheduleRedraw(){
-  if(redrawScheduled) return;
-  redrawScheduled = true;
-  setTimeout(() => { redrawScheduled = false; redraw(); }, 80);
-}
-
-timeSlider.addEventListener('input', () => {
-  sliderCutoffMs = Number(timeSlider.value);
-  timeLabel.textContent = formatTimeLabel(sliderCutoffMs);
-  scheduleRedraw();
-});
-
-playBtn.addEventListener('click', () => {
-  if(playTimer){
-    clearInterval(playTimer);
-    playTimer = null;
-    playBtn.textContent = '▶ 재생';
+function renderSpots(){
+  const d = days[activeIdx];
+  document.getElementById('spotTitle').textContent = `${fmtDate(d.rows[0].ms)} 결빙위험 구간`;
+  const el = document.getElementById('spots');
+  if(!d.dangerSpans.length){
+    el.innerHTML = `<li class="empty">이날은 노면 −1℃ 이하 구간이 관측되지 않았습니다.</li>`;
     return;
   }
-  if(timeSlider.disabled) return;
-  const min = Number(timeSlider.min), max = Number(timeSlider.max);
-  if(max <= min) return;
-  playBtn.textContent = '⏸ 정지';
-  const stepMs = Math.max(1000, Math.round((max - min) / 150)); // 약 150단계로 재생
-  if(Number(timeSlider.value) >= max) timeSlider.value = String(min);
-  playTimer = setInterval(() => {
-    let v = Number(timeSlider.value) + stepMs;
-    if(v >= max){
-      v = max;
-      clearInterval(playTimer);
-      playTimer = null;
-      playBtn.textContent = '▶ 재생';
-    }
-    timeSlider.value = String(v);
-    sliderCutoffMs = v;
-    timeLabel.textContent = formatTimeLabel(v);
-    redraw();
-  }, 200);
-});
+  el.innerHTML = d.dangerSpans.slice(0, 5).map((s, i) => `
+    <li class="spot" data-i="${i}">
+      <div class="num">${i+1}</div>
+      <div>
+        <div class="m">${s.len >= 0.1 ? '약 ' + s.len.toFixed(1) + 'km 연속' : '단일 관측 지점'} · 최저 ${fmtTemp(s.coldest.roadTemp)}</div>
+        <div class="s">${fmtHM(s.start.ms)}~${fmtHM(s.end.ms)} 통과</div>
+      </div>
+    </li>`).join('') +
+    (d.dangerSpans.length > 5 ? `<li class="empty">외 ${d.dangerSpans.length - 5}곳 (짧은 구간)</li>` : '');
+}
 
-/* ==================================================================
-   인쇄 / PDF 저장 (보고서·홍보자료용)
-   ================================================================== */
-document.getElementById('exportBtn').addEventListener('click', () => { window.print(); });
+function selectDay(i){
+  activeIdx = i;
+  const d = days[i];
+  document.getElementById('mapTitle').textContent =
+    `${fmtDate(d.rows[0].ms)} ${PERIOD_LABEL[d.period]} 주행 · ${fmtHM(d.rows[0].ms)}~${fmtHM(d.rows[d.rows.length-1].ms)}`;
+  renderDays();
+  renderSpots();
+  drawDay(d);
+}
 
-/* ==================================================================
-   실행 버튼 - 추가된 파일을 파싱해 이동경로 단위로 묶어 렌더링
-   ================================================================== */
-runBtn.addEventListener('click', async () => {
-  if(pendingFiles.length === 0) return;
+// 버튼에는 괄호 속 구간을 뺀 이름(예: 27번국도, 27번국도 2026)만, 같은 이름이 둘 이상이면 관측 시기까지 붙여 구분
+function renderRoadButtons(){
+  const short = g => g.target.replace(/\s*\([^)]*\)/, '').trim() || g.target;
+  const counts = GROUPS.reduce((m, g) => (m[short(g)] = (m[short(g)] || 0) + 1, m), {});
+  document.getElementById('roads').innerHTML = GROUPS.map((g, i) => {
+    const name = /^\d{4}$/.test(short(g)) ? `${short(g)}년` : short(g);
+    const text = counts[short(g)] > 1 ? `${name} · ${g.period}` : name;
+    return `<button data-road="${i}" title="${escapeHtml(g.target)} · ${escapeHtml(g.period)}">${escapeHtml(text)}</button>`;
+  }).join('');
+}
+function escapeHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-  const missing = pendingFiles.filter(f => !(f.location || '').trim());
-  if(missing.length){
-    fileStatusEl.textContent = `관측 자료 이름을 입력해주세요 (${missing.length}개 파일 미입력). 연도는 파일 날짜로 자동 구분됩니다.`;
-    (missing.length === pendingFiles.length ? targetInput : fileChipsEl.querySelector(`.chip-loc[data-loc="${missing[0].id}"]`)).focus();
-    return;
-  }
+function selectRoad(id){
+  // 관측 자료 이름이 연도(예: 2025)면 "2025년"으로 읽히게
+  const road = { label: /^\d{4}$/.test(GROUPS[id].target) ? `${GROUPS[id].target}년` : GROUPS[id].target, period: GROUPS[id].period };
+  document.querySelectorAll('#roads button').forEach(b => b.classList.toggle('active', b.dataset.road === String(id)));
+  days = daysOf(id).slice();
+  days.sort((a, b) => a.rows[0].ms - b.rows[0].ms);
 
-  runBtn.disabled = true;
-  fileStatusEl.textContent = '파일을 읽는 중입니다…';
-  let prepared;
-  try {
-    prepared = await prepareObservationEntries(
-      pendingFiles.map(f => ({ name: f.name, target: f.location.trim(), data: f.data })), browserInflateRaw);
-  } finally {
-    runBtn.disabled = false;
-  }
-  const { entries: files, skipped } = prepared;
-  // 파일별 반영 여부 표시: 건너뛴 파일은 빨강(이유는 마우스를 올리면 보임), 반영된 파일은 초록
-  pendingFiles.forEach(f => {
-    const chip = fileChipsEl.querySelector(`.file-chip[data-id="${f.id}"]`);
-    if(!chip) return;
-    const sk = skipped.find(x => x.name === f.name);
-    chip.classList.toggle('error', !!sk);
-    chip.classList.toggle('applied', !sk);
-    chip.title = sk ? sk.reason : '';
-  });
-  const hadError = skipped.length > 0;
+  document.getElementById('title').textContent = `${road.label} 겨울철 노면결빙 관측 결과`;
 
-  if(files.length === 0){
-    fileStatusEl.textContent = '유효한 관측 데이터를 찾지 못했습니다. AWS 관측파일(#Time,Site,…) 또는 시각·노면온도·위도·경도 열(wdate_, r_temp_, lati_, longi_ 등)이 있는 csv/xlsx인지 확인해주세요. ' +
-      skipped.map(x => `${x.name}: ${x.reason}`).join(' / ');
-    return;
-  }
+  const dawn = days.filter(d => d.period === 'dawn');
+  const other = days.filter(d => d.period !== 'dawn');
+  const allSpans = days.flatMap(d => d.dangerSpans.map(s => ({ s, d })));
+  const longest = allSpans.reduce((m, x) => (!m || x.s.len > m.s.len) ? x : m, null);
+  const coldestDay = days.reduce((m, d) => (!m || d.coldest.roadTemp < m.coldest.roadTemp) ? d : m, null);
+  const totalKm = days.reduce((s, d) => s + d.km, 0);
 
-  // 같은 이름의 추가 자료가 이미 있으면 새로 넣은 것으로 바꾼다 (새로고침하면 사라지는 임시 자료)
-  const newGroups = groupObservationsByTarget(files).map(g => ({ ...g, uploaded: true }));
-  uploadedGroups = uploadedGroups.filter(g => !newGroups.some(n => n.target === g.target && n.year === g.year)).concat(newGroups);
-
-  // 데이터를 분석해 결빙/폭염 위험 신호를 자동 판단하고 해당 모드로 전환
-  const first = newGroups[0];
-  const detected = detectMode(buildRoutes(first).routes);
-  let detectMsg;
-  if(detected.mode === 'heat'){
-    detectMsg = `🔥 폭염 위험 신호 감지(최고 ${detected.maxHeatTemp.toFixed(1)}℃) → 폭염 모드로 전환했습니다.`;
-  } else if(detected.mode === 'icing'){
-    detectMsg = `❄️ 결빙 위험 신호 감지(최저 ${detected.minRoadTemp.toFixed(1)}℃) → 결빙 모드로 전환했습니다.`;
+  // 헤드라인: 새벽 관측일과 그 외 관측일의 결빙주의·위험 비율 대비
+  if(dawn.length){
+    document.getElementById('headBig').innerHTML =
+      `새벽 주행 ${dawn.length}회, 관측 지점의 <em>${rangePct(dawn)}</em>가 결빙주의·위험 기준에 해당했습니다`;
+    document.getElementById('headSmall').textContent = other.length
+      ? `저녁·낮 주행 ${other.length}회는 ${rangePct(other)} · 노면온도 1℃ 이하 기준, ${month(road)} 실제 주행 관측`
+      : `노면온도 1℃ 이하 기준 · ${month(road)} 실제 주행 관측`;
   } else {
-    detectMsg = `결빙·폭염 위험 신호가 감지되지 않았습니다(최저 ${isFinite(detected.minRoadTemp) ? detected.minRoadTemp.toFixed(1) : '-'}℃ · 최고 ${isFinite(detected.maxHeatTemp) ? detected.maxHeatTemp.toFixed(1) : '-'}℃). 결빙 모드로 표시합니다.`;
+    document.getElementById('headBig').textContent = `관측 지점의 ${rangePct(days)}가 결빙주의·위험 기준에 해당했습니다`;
+    document.getElementById('headSmall').textContent = `노면온도 1℃ 이하 기준 · ${month(road)} 실제 주행 관측`;
   }
-  MODE = detected.mode || 'icing';
-  selectRoad(groupId(first));
 
-  const loadMsg = `주행 ${files.length}개 · 관측 자료 ${newGroups.length}개(${newGroups.map(g => `${g.year}년 ${g.target}`).join(', ')})를 메뉴에 추가했습니다` +
-    (hadError ? ` · ${skipped.length}개 파일 제외(빨간 표시, 마우스를 올리면 이유)` : '') + '.';
-  fileStatusEl.textContent = `${loadMsg} ${detectMsg} 새로고침하면 사라지니, 계속 쓰려면 aws_1분/<관측 대상>/ 폴더에 넣고 build-observations.cjs를 실행하세요.`;
+  const dawnMax = dawn.length ? dawn.reduce((m, d) => d.riskPct > m.riskPct ? d : m) : null;
+  document.getElementById('kDawn').innerHTML = dawnMax ? `${Math.round(dawnMax.riskPct)}<small>%</small>` : '-';
+  document.getElementById('kDawnNote').textContent = dawnMax
+    ? `${fmtDate(dawnMax.rows[0].ms)} ${fmtHM(dawnMax.rows[0].ms)}~${fmtHM(dawnMax.rows[dawnMax.rows.length-1].ms)} 관측 지점 기준`
+    : '새벽 관측 없음';
+  document.getElementById('kLong').innerHTML = longest ? `${longest.s.len.toFixed(1)}<small>km</small>` : '-';
+  document.getElementById('kLongNote').textContent = longest
+    ? `${fmtDate(longest.d.rows[0].ms)} ${fmtHM(longest.s.start.ms)}~${fmtHM(longest.s.end.ms)} 노면 −1℃ 이하 연속`
+    : '노면 −1℃ 이하 연속 구간 없음';
+  document.getElementById('kMin').textContent = fmtTemp(coldestDay.coldest.roadTemp);
+  document.getElementById('kMinNote').textContent = `${fmtDate(coldestDay.coldest.ms)} ${fmtHM(coldestDay.coldest.ms)} 관측`;
+  document.getElementById('kRuns').innerHTML = `${days.length}<small>회</small>`;
+  document.getElementById('kRunsNote').textContent =
+    `총 ${Math.round(totalKm).toLocaleString()}km · 새벽 ${dawn.length}회, 저녁·낮 ${other.length}회`;
+
+  renderYears(id);
+
+  // 처음엔 결빙 비율이 가장 높았던 날을 지도에 표시
+  const worst = days.reduce((m, d, i) => d.riskPct > days[m].riskPct ? i : m, 0);
+  selectDay(worst);
+}
+function month(road){ return road.period; }
+
+// 연도(관측 자료)별 집계 - 그해 모든 주행의 관측 지점을 합쳐 평균·비율을 낸다
+const groupDaysCache = new Map();
+function daysOf(i){
+  if(!groupDaysCache.has(i)) groupDaysCache.set(i, GROUPS[i].files.map(summarizeDay).filter(d => d.rows.length));
+  return groupDaysCache.get(i);
+}
+function summarizeGroup(i){
+  const ds = daysOf(i);
+  const rows = ds.flatMap(d => d.rows);
+  const dawnRows = ds.filter(d => d.period === 'dawn').flatMap(d => d.rows);
+  const air = rows.map(r => r.airTemp).filter(isFinite);
+  const share = (list, test) => list.length ? list.filter(test).length / list.length * 100 : NaN;
+  return {
+    runs: ds.length, dawnRuns: ds.filter(d => d.period === 'dawn').length,
+    avgRoad: rows.length ? rows.reduce((s, r) => s + r.roadTemp, 0) / rows.length : NaN,
+    avgAir: air.length ? air.reduce((s, v) => s + v, 0) / air.length : NaN,
+    minRoad: rows.length ? Math.min(...rows.map(r => r.roadTemp)) : NaN,
+    dangerPct: share(rows, r => r.sev === 2), cautionPct: share(rows, r => r.sev === 1),
+    riskPct: share(rows, r => r.sev > 0), dawnRiskPct: share(dawnRows, r => r.sev > 0)
+  };
+}
+function renderYears(activeId){
+  const label = g => /^\d{4}$/.test(g.target) ? `${g.target}년` : `${g.target} · ${g.period}`;
+  const t = v => isFinite(v) ? fmtTemp(v) : '-';
+  const pctText = v => isFinite(v) ? `${Math.round(v)}%` : '-';
+  document.getElementById('years').innerHTML = `
+    <thead><tr><th>연도</th><th class="opt">주행</th><th>평균 노면</th><th>평균 기온</th><th class="opt">최저 노면</th><th><span class="opt">결빙</span>주의·위험</th><th>새벽<span class="opt"> 주행</span> 시</th></tr></thead>
+    <tbody>${GROUPS.map((g, i) => {
+      const y = summarizeGroup(i);
+      return `<tr data-i="${i}" class="${i === activeId ? 'on' : ''}">
+        <th>${escapeHtml(label(g))}</th>
+        <td class="opt">${y.runs}회 (새벽 ${y.dawnRuns})</td>
+        <td>${t(y.avgRoad)}</td><td>${t(y.avgAir)}</td><td class="opt">${t(y.minRoad)}</td>
+        <td><div class="risk"><div class="bar" title="결빙위험 ${Math.round(y.dangerPct)}% · 결빙주의 ${Math.round(y.cautionPct)}%"><i style="width:${y.dangerPct}%;background:var(--danger)"></i><i style="width:${y.cautionPct}%;background:var(--caution)"></i></div><b>${pctText(y.riskPct)}</b></div></td>
+        <td class="${y.dawnRiskPct >= 50 ? 'hot' : ''}"><b>${pctText(y.dawnRiskPct)}</b></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+}
+document.getElementById('years').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-i]');
+  if(tr) selectRoad(Number(tr.dataset.i));
 });
 
-/* ==================================================================
-   초기 화면 - 데모(이동관측) 데이터로 렌더링
-   ================================================================== */
-const builtinGroups = groupObservationsByTarget(BUILTIN_OBSERVATIONS);
-let uploadedGroups = [];  // 이번 화면에서 파일 추가로 만든 관측 대상 (새로고침 시 사라짐)
-let selectedRoad = null;
-let selectedYear = null;
-
-const groupId = g => `${g.uploaded ? 'upload' : 'builtin'}:${g.year}:${g.target}`;
-const allGroups = () => builtinGroups.concat(uploadedGroups);
-const allYears = () => Array.from(new Set(allGroups().map(g => g.year))).sort();
-
-function renderRoadMenu(){
-  const years = allYears();
-  if(!years.includes(selectedYear)) selectedYear = years[years.length - 1] || null;
-  document.getElementById('yearMenu').innerHTML = years.map(y => `
-    <button type="button" class="year-btn${y === selectedYear ? ' active' : ''}" data-year="${escapeAttr(y)}" aria-pressed="${y === selectedYear}">${escapeAttr(y)}${/^\d{4}$/.test(y) ? '년' : ''}</button>
-  `).join('');
-  // 연도 안에 관측 자료가 하나뿐이면(예: 2025 폴더) 2단계 메뉴는 숨긴다
-  const inYear = allGroups().filter(g => g.year === selectedYear);
-  document.getElementById('roadMenu').closest('.menu-line').hidden = inYear.length <= 1;
-  // 연도 안의 관측 자료는 이름에 연도가 이미 드러나므로 버튼에는 관측 대상 · 관측 월만 적는다
-  document.getElementById('roadMenu').innerHTML = allGroups().filter(g => g.year === selectedYear).map(g => `
-    <button type="button" class="road-btn${groupId(g) === selectedRoad ? ' active' : ''}" data-road="${escapeAttr(groupId(g))}" aria-pressed="${groupId(g) === selectedRoad}">${escapeAttr(g.target)} · ${escapeAttr(g.period.replace(/^\d{4}년 /, ''))}${g.uploaded ? ' <span class="road-badge">추가</span>' : ''}</button>
-  `).join('');
-}
-
-function selectYear(year){
-  selectedYear = year;
-  const first = allGroups().find(g => g.year === year);
-  if(first) selectRoad(groupId(first));
-}
-document.getElementById('yearMenu').addEventListener('click', e => {
-  const btn = e.target.closest('.year-btn');
-  if(btn && btn.dataset.year !== selectedYear) selectYear(btn.dataset.year);
+document.getElementById('roads').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if(b) selectRoad(Number(b.dataset.road));
+});
+document.getElementById('days').addEventListener('click', e => {
+  const b = e.target.closest('.day');
+  if(!b) return;
+  selectDay(Number(b.dataset.i));
+  revealMap();
+});
+document.getElementById('spots').addEventListener('click', e => {
+  const li = e.target.closest('.spot');
+  if(!li) return;
+  const s = days[activeIdx].dangerSpans[Number(li.dataset.i)];
+  const pts = s.pts.map(p => [p.lat, p.lon]);
+  if(pts.length > 1) map.fitBounds(pts, { padding: [60, 60], maxZoom: 14 });
+  else map.setView(pts[0], 14);
+  spotMarkers[Number(li.dataset.i)].openPopup();
+  revealMap();
 });
 
-// 관측 대상의 파일들을 지점(Site)별 이동경로로 나눈다
-function buildRoutes(group){
-  const routes = [];
-  let excluded = 0;
-  group.files.forEach(file => {
-    const rows = parseStationFile(file.text);
-    const sourceCount = file.text.split(/\r?\n/).filter(line => line.trim() && !line.trim().startsWith('#') && line.trim() !== '*').length;
-    excluded += sourceCount - rows.length;
-    const sites = new Map();
-    rows.forEach(row => {
-      if(!sites.has(row.site)) sites.set(row.site, []);
-      sites.get(row.site).push(row);
-    });
-    sites.forEach((siteRows, site) => {
-      sortRowsByTime(siteRows);
-      repairIntegerCarry(siteRows);
-      routes.push({ site, fileName: file.name, location: group.target, rows: siteRows });
-    });
-  });
-  return { routes, excluded };
-}
-
-function showRoadObservations(){
-  const group = allGroups().find(g => groupId(g) === selectedRoad);
-  if(!group) return;
-  const { routes, excluded } = buildRoutes(group);
-  applyModeLabels();
-  renderStationDashboard(routes, group.files.map(f => f.name));
-  document.getElementById('archiveNote').textContent = group.uploaded
-    ? `${group.target} · ${group.period} 관측일 ${new Set(group.dates).size}일 · 주행 ${group.files.length}회 · 추가한 관측파일(새로고침하면 사라짐) · 실제 관측시각을 확인하세요.`
-    : `${group.target} · ${group.period} 관측일 ${new Set(group.dates).size}일 · 주행 ${group.files.length}회 통합 · 과거 관측자료 · 현재 도로 상태나 미래 예보가 아닙니다.`;
-  fileStatusEl.textContent = `${group.uploaded ? '추가한 자료' : '내장자료'} 주행 ${group.files.length}회 · ${routes.reduce((n,r) => n+r.rows.length,0).toLocaleString()}건 표시` +
-    (excluded ? ` · 좌표 또는 필수값이 유효하지 않은 ${excluded}건 제외` : '');
-}
-
-function selectRoad(roadId){
-  selectedRoad = roadId;
-  const group = allGroups().find(g => groupId(g) === roadId);
-  if(group) selectedYear = group.year;
-  renderRoadMenu();
-  showRoadObservations();
-}
-document.getElementById('roadMenu').addEventListener('click', e => {
-  const btn = e.target.closest('.road-btn');
-  if(btn) selectRoad(btn.dataset.road);
-});
-// 처음에는 가장 최근 연도의 첫 관측 자료를 보여준다
-renderRoadMenu();
-if(selectedYear) selectYear(selectedYear);
-
-// '추가 기능' 안의 파일 추가 영역을 펼치고 그 위치로 이동
-document.getElementById('addTargetBtn').addEventListener('click', () => {
-  const details = document.querySelector('details.settings');
-  details.open = true;
-  document.querySelector('.file-bar').scrollIntoView({ behavior: 'smooth', block: 'center' });
-});
+renderRoadButtons();
+if(GROUPS.length) selectRoad(0);
 </script>
 </body>
 </html>
